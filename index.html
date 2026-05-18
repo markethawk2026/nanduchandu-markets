@@ -303,7 +303,7 @@ body.light input{background:#f8fafc!important;border-color:#e2e8f0!important;col
 <!-- CHAT -->
 <div class="page" id="pg-chat">
   <div class="sec">
-    <div class="sec-title" style="margin-bottom:10px">🤖 AI Stock Assistant <span class="src src-ai">Claude AI</span></div>
+    <div class="sec-title" style="margin-bottom:10px">🤖 AI Stock Assistant <span class="src src-ai">AI (free)</span></div>
     <div style="margin-bottom:10px">
       <span class="csug">Is RELIANCE a good buy?</span>
       <span class="csug">Best IT stocks NSE?</span>
@@ -322,7 +322,9 @@ body.light input{background:#f8fafc!important;border-color:#e2e8f0!important;col
 </div>
 
 <script>
-var API = "https://api.anthropic.com/v1/messages";
+// Free data APIs configuration
+var AV_KEY = ""; // Alpha Vantage API key (free tier). Set your key here to enable NSE stock quotes.
+var USE_ALPHA_VANTAGE = !!AV_KEY;
 var activeTF = "both", isLight = false;
 var CACHE = {news:null,newsTs:0,trend:null,trendTs:0,global:null,globalTs:0,cal:null,calTs:0,analysis:{},nextday:{},outlook:{}};
 var TTL_SHORT = 10*60*1000, TTL_LONG = 30*60*1000;
@@ -361,17 +363,63 @@ var NSE_STOCKS = [
   {t:"M&M",n:"Mahindra & Mahindra",s:"Auto",e:"🚙"},
 ];
 
-/* ── Claude AI call (with web search) ─────────────────── */
+/* ── Lightweight AI/chat fallback using free APIs ─────── */
 async function ai(prompt, useSearch) {
-  var body = {
-    model: "claude-sonnet-4-20250514",
-    max_tokens: 1500,
-    messages: [{role:"user", content: prompt}]
-  };
-  if (useSearch) body.tools = [{type:"web_search_20250305", name:"web_search"}];
-  var r = await fetch(API, {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body)});
-  var d = await r.json();
-  return d.content.map(function(b){return b.type==="text"?b.text:"";}).join("\n");
+  // Simple intent detection: look for known NSE tickers or crypto names
+  var up = prompt.toUpperCase();
+  // Check NSE tickers
+  for (var i=0;i<NSE_STOCKS.length;i++){
+    var t = NSE_STOCKS[i].t;
+    if (up.indexOf(t) !== -1) {
+      // Fetch quote (Alpha Vantage) if key present
+      if (AV_KEY) {
+        var q = await fetchAlphaQuote(t);
+        if (q) return formatStockReply(NSE_STOCKS[i], q);
+        return "Unable to fetch live quote right now. Try again later.";
+      } else {
+        return "Live NSE quotes require a free Alpha Vantage API key. Set `AV_KEY` in the page to use live quotes (https://www.alphavantage.co).";
+      }
+    }
+  }
+  // Check for some crypto keywords
+  if (/BTC|BITCOIN|ETH|ETHEREUM|DOGE|DOGECOIN/.test(up)){
+    var id = up.indexOf('BTC')!==-1||up.indexOf('BITCOIN')!==-1? 'bitcoin' : up.indexOf('ETH')!==-1||up.indexOf('ETHEREUM')!==-1? 'ethereum' : 'dogecoin';
+    var p = await fetchCoinPrice(id);
+    if (p) return `Current ${id} price: ${p} (USD).`;
+    return "Unable to fetch crypto price right now.";
+  }
+  // Generic fallback: provide short canned help or instructions
+  return "I can fetch live NSE quotes (needs Alpha Vantage free API key) or crypto prices (no key). Try queries like 'RELIANCE price' or 'BTC price'.";
+}
+
+function formatStockReply(stockMeta, quote){
+  return `${stockMeta.n} (${stockMeta.t}) — Price: ${quote.price} ${quote.currency || ''} — Change: ${quote.change} (${quote.changePercent})`;
+}
+
+async function fetchAlphaQuote(symbol){
+  try{
+    var s = symbol + ".NS"; // Alpha Vantage convention for NSE
+    var url = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${encodeURIComponent(s)}&apikey=${AV_KEY}`;
+    var r = await fetch(url);
+    var j = await r.json();
+    var g = j['Global Quote'] || j['Global quote'] || null;
+    if (!g) return null;
+    return {
+      price: g['05. price'] || g['05. Price'] || g['price'] || null,
+      change: g['09. change'] || g['09. Change'] || g['change'] || null,
+      changePercent: g['10. change percent'] || g['10. Change Percent'] || g['change percent'] || null,
+      currency: 'INR'
+    };
+  }catch(e){return null}
+}
+
+async function fetchCoinPrice(id){
+  try{
+    var url = `https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(id)}&vs_currencies=usd`;
+    var r = await fetch(url);
+    var j = await r.json();
+    return j[id] && j[id].usd? j[id].usd : null;
+  }catch(e){return null}
 }
 
 function pj(txt) {
@@ -589,7 +637,7 @@ function renderAnalysis(d){
         '<div class="gc"><div class="gc-lbl">MA Signal</div><div class="gc-val" style="font-size:11px;color:'+smc+'">'+(d.smaSignal||"—")+'</div></div>'+
       '</div>'+
     '</div>'+
-    '<div class="sec"><div class="sec-hdr"><span class="sec-title">AI Prediction <span class="src src-ai">Claude AI</span></span></div>'+
+    '<div class="sec"><div class="sec-hdr"><span class="sec-title">AI Prediction <span class="src src-ai">AI (free)</span></span></div>'+
       '<div class="pred-row">'+
         '<div>'+
           '<span class="pbadge" style="color:'+t.c+';background:'+t.bg+';border-color:'+t.b+'">'+(d.trend==="Bullish"?"🟢":d.trend==="Bearish"?"🔴":"🟡")+" "+(d.trend||"—")+'</span>'+
@@ -647,7 +695,7 @@ function renderNextDay(d){
     '</div>'+
     (Array.isArray(d.catalysts)&&d.catalysts.length?'<div class="sec"><div class="sec-title" style="margin-bottom:10px">📌 Watch Tomorrow</div>'+d.catalysts.map(function(c){return'<div class="reason">'+c+'</div>';}).join("")+'</div>':"")+
     '<div class="sec">'+
-      '<div class="sec-hdr"><span class="sec-title">Prediction <span class="src src-ai">Claude</span></span>'+
+      '<div class="sec-hdr"><span class="sec-title">Prediction <span class="src src-ai">AI (free)</span></span>'+
       '<span class="pbadge" style="font-size:11px;color:'+t.c+';background:'+t.bg+';border:1px solid '+t.b+'">'+(d.trend==="Bullish"?"🟢":"🔴")+" "+(d.trend||"—")+'</span></div>'+
       '<div class="prob-labels"><span style="color:#22c55e">🟢 Bullish '+pb+'%</span><span style="color:#ef4444">Bearish '+pbe+'% 🔴</span></div>'+
       '<div class="prob-bar"><div class="pb-b" style="width:'+pb+'%"></div><div class="pb-r" style="width:'+pbe+'%"></div></div>'+
@@ -682,8 +730,8 @@ async function runOutlook(ticker){
     if(tf==="both"&&d.shortTerm&&d.longTerm)
       html='<div style="font-size:11px;color:#3b82f6;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">⚡ Short Term (1–2 Weeks)</div>'+oCard(d.shortTerm,"short")+
            '<div style="font-size:11px;color:#f59e0b;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin:13px 0 8px">🏔 Long Term (3–12 Months)</div>'+oCard(d.longTerm,"long")+
-           '<div class="disc">🤖 Claude AI · ⚠️ Not financial advice</div>';
-    else html=oCard(d,tf)+'<div class="disc">🤖 Claude AI · ⚠️ Not financial advice</div>';
+          '<div class="disc">🤖 AI (free) · ⚠️ Not financial advice</div>';
+    else html=oCard(d,tf)+'<div class="disc">🤖 AI (free) · ⚠️ Not financial advice</div>';
     CACHE.outlook[key]={html:html,ts:Date.now()}; body.innerHTML=html;
   }catch(e){body.innerHTML='<div style="text-align:center;padding:30px;color:#ef4444">Could not load. Try again.</div>';}
 }
