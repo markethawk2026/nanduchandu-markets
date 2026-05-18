@@ -363,13 +363,32 @@ var NSE_STOCKS = [
   {t:"M&M",n:"Mahindra & Mahindra",s:"Auto",e:"🚙"},
 ];
 
+// Symbols: start with built-in NSE_STOCKS and allow lazy-loading a larger list from symbols.json
+var SYMBOLS = NSE_STOCKS.slice();
+async function loadSymbols(){
+  if(window.SYMBOLS_LOADED) return;
+  try{
+    var r = await fetch('symbols.json');
+    var j = await r.json();
+    if(Array.isArray(j)){
+      var map = {};
+      SYMBOLS.forEach(function(s){ if(s && s.t) map[s.t]=s; });
+      j.forEach(function(s){ if(s && s.t) map[s.t]=s; });
+      SYMBOLS = Object.keys(map).map(function(k){return map[k];});
+    }
+  }catch(e){console.log('Could not load symbols.json',e)}
+  window.SYMBOLS_LOADED = true;
+}
+function getSymbols(){ return (window.SYMBOLS_LOADED||SYMBOLS.length>0)? SYMBOLS : NSE_STOCKS; }
+
 /* ── Lightweight AI/chat fallback using free APIs ─────── */
 async function ai(prompt, useSearch) {
   // Simple intent detection: look for known NSE tickers or crypto names
   var up = prompt.toUpperCase();
   // Check NSE tickers
-  for (var i=0;i<NSE_STOCKS.length;i++){
-    var t = NSE_STOCKS[i].t;
+  var syms = getSymbols();
+  for (var i=0;i<syms.length;i++){
+    var t = syms[i].t;
     if (up.indexOf(t) !== -1) {
       // Fetch quote (Alpha Vantage) if key present
       if (AV_KEY) {
@@ -505,15 +524,17 @@ document.querySelectorAll(".tab").forEach(function(t){t.addEventListener("click"
 
 /* ── search dropdown (instant local filter) ─────────────── */
 var si=document.getElementById("si"), dd=document.getElementById("dd");
-si.addEventListener("input",function(){
+si.addEventListener("input",async function(){
+  await loadSymbols();
   var q=si.value.trim().toLowerCase();
   if(q.length<1){dd.classList.remove("open");return;}
-  var found=NSE_STOCKS.filter(function(s){return s.t.toLowerCase().includes(q)||s.n.toLowerCase().includes(q)||s.s.toLowerCase().includes(q);}).slice(0,8);
+  var list = getSymbols();
+  var found=list.filter(function(s){return s.t.toLowerCase().includes(q)||s.n.toLowerCase().includes(q)||s.s.toLowerCase().includes(q);}).slice(0,8);
   // Always offer an option to search the exact typed ticker across all NSE symbols
   var qUp = q.toUpperCase();
   var items = [];
   // if there's an exact ticker in list, prioritize it
-  var exact = NSE_STOCKS.find(function(s){return s.t===qUp;});
+  var exact = list.find(function(s){return s.t===qUp;});
   if(exact){ items.push(exact); }
   // add filtered results (avoid duplicates)
   found.forEach(function(s){ if(!items.find(function(x){return x.t===s.t;})) items.push(s); });
@@ -917,7 +938,7 @@ async function sendChat(){
   try{
     // Lightweight chat: if user asked about a ticker, show analysis; if crypto, show price; else provide help.
     var up = q.toUpperCase();
-    var found = NSE_STOCKS.find(function(s){return up.indexOf(s.t)!==-1 || up.indexOf(s.n.toUpperCase())!==-1;});
+    var found = getSymbols().find(function(s){return up.indexOf(s.t)!==-1 || up.indexOf(s.n.toUpperCase())!==-1;});
     var el=document.getElementById(tid);
     if(found){ await runAnalysis(found.t); var summary = (CACHE.analysis[found.t] && CACHE.analysis[found.t].d && CACHE.analysis[found.t].d.summary) || 'No analysis available.'; if(el) el.innerHTML = summary; }
     else if(/BTC|BITCOIN|ETH|ETHEREUM|DOGE|DOGECOIN/.test(up)){
