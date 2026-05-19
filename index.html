@@ -43,11 +43,6 @@ body.light input{background:#f8fafc!important;border-color:#e2e8f0!important;col
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
 .live-lbl{font-size:11px;color:#22c55e;font-weight:500}
 .theme-btn{background:none;border:1px solid #1c2a45;color:#64748b;padding:4px 9px;border-radius:7px;cursor:pointer;font-size:12px}
-.market-status{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 14px;margin:12px 0 6px;border:1px solid #1c2a45;border-radius:14px;background:rgba(15,21,37,.92);color:#cbd5e1;font-size:12px;flex-wrap:wrap}
-.market-status strong{font-weight:700;color:#eff6ff}
-.status-pill{padding:5px 12px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
-.status-open{background:#052016;color:#22c55e;border:1px solid #134e4a}
-.status-closed{background:#2f1620;color:#f87171;border:1px solid #7f1d1d}
 
 .tabs{display:flex;background:#0b0e1a;border-bottom:1px solid #1c2a45;padding:0 10px;overflow-x:auto;scrollbar-width:none}
 .tabs::-webkit-scrollbar{display:none}
@@ -206,11 +201,6 @@ body.light input{background:#f8fafc!important;border-color:#e2e8f0!important;col
   </div>
 </div>
 
-<div class="market-status">
-  <div><strong id="marketStatus">Market status</strong> · <span id="marketTime">--:-- IST</span></div>
-  <div class="status-pill status-open" id="marketStatePill">MARKET OPEN</div>
-</div>
-
 <div class="tabs">
   <div class="tab active" data-tab="home">🏠 Home</div>
   <div class="tab" data-tab="analysis">📊 Analysis</div>
@@ -313,7 +303,7 @@ body.light input{background:#f8fafc!important;border-color:#e2e8f0!important;col
 <!-- CHAT -->
 <div class="page" id="pg-chat">
   <div class="sec">
-    <div class="sec-title" style="margin-bottom:10px">🤖 AI Stock Assistant <span class="src src-ai">AI (free)</span></div>
+    <div class="sec-title" style="margin-bottom:10px">🤖 AI Stock Assistant <span class="src src-ai">Claude AI</span></div>
     <div style="margin-bottom:10px">
       <span class="csug">Is RELIANCE a good buy?</span>
       <span class="csug">Best IT stocks NSE?</span>
@@ -332,9 +322,8 @@ body.light input{background:#f8fafc!important;border-color:#e2e8f0!important;col
 </div>
 
 <script>
-// Free data APIs configuration
-var AV_KEY = "0SEG98HVWIHOOKNC"; // Alpha Vantage API key (free tier). Set your key here to enable NSE stock quotes.
-var USE_ALPHA_VANTAGE = !!AV_KEY;
+var API = "https://api.anthropic.com/v1/messages";
+var API_KEY = "YOUR_NEW_API_KEY_HERE"; // Replace after deleting old key at console.anthropic.com
 var activeTF = "both", isLight = false;
 var CACHE = {news:null,newsTs:0,trend:null,trendTs:0,global:null,globalTs:0,cal:null,calTs:0,analysis:{},nextday:{},outlook:{}};
 var TTL_SHORT = 10*60*1000, TTL_LONG = 30*60*1000;
@@ -373,237 +362,26 @@ var NSE_STOCKS = [
   {t:"M&M",n:"Mahindra & Mahindra",s:"Auto",e:"🚙"},
 ];
 
-var FALLBACK_NEWS = [
-  {headline:"Nifty holds gains as financials and IT balance each other","source":"Economic Times","time":"09:20","sentiment":"Neutral","ticker":"NSE"},
-  {headline:"Rupee steadies near 82.45 after global dollar weakness","source":"Reuters","time":"08:55","sentiment":"Positive","ticker":"INR=X"},
-  {headline:"Oil prices rise ahead of central bank commentary","source":"Bloomberg","time":"08:10","sentiment":"Neutral","ticker":"CRUDE"},
-  {headline:"Market breadth improves as indices find support","source":"CNBC-TV18","time":"07:45","sentiment":"Positive","ticker":"NSE"}
-];
-
-var FALLBACK_TREND = [
-  {ticker:"NSEI",company:"Nifty 50 benchmark",emoji:"📈",price:"19,082.50",changePct:"0.34%",trend:"Bullish"},
-  {ticker:"BSESN",company:"Sensex benchmark",emoji:"📈",price:"64,835.20",changePct:"0.28%",trend:"Bullish"},
-  {ticker:"BANKNIFTY",company:"Banking sector index",emoji:"🏦",price:"48,512.10",changePct:"1.12%",trend:"Bullish"},
-  {ticker:"ITINDEX",company:"IT sector index",emoji:"💻",price:"33,285.60",changePct:"0.68%",trend:"Bullish"}
-];
-
-var FALLBACK_INDEXES = {
-  nifty:{regularMarketPrice:"19,082.50",regularMarketChangePercent:0.34},
-  sensex:{regularMarketPrice:"64,835.20",regularMarketChangePercent:0.28}
-};
-
-var FALLBACK_GLOBAL = {
-  nifty:{regularMarketPrice:"19,082.50",regularMarketChangePercent:0.34},
-  sensex:{regularMarketPrice:"64,835.20",regularMarketChangePercent:0.28},
-  dow:{value:"35,420.15",change:"0.86%"},
-  nasdaq:{value:"15,320.45",change:"1.12%"},
-  hangseng:{value:"18,650.80",change:"0.62%"},
-  crude:{value:"$82.15",change:"0.45%"},
-  gold:{value:"$2,030.40",change:"-0.15%"},
-  usdinr:{value:"₹82.45",change:"0.05%"},
-  fearGreed:{score:58,label:"Greed"}
-};
-
-var FALLBACK_CAL = [
-  {date:"19 May","company":"Earnings season begins","ticker":"NSE","detail":"Q4 results across sectors","type":"Earnings"},
-  {date:"19 May","company":"Auto sector update","ticker":"NSE","detail":"Monthly volume data due","type":"Result"},
-  {date:"20 May","company":"Banking review","ticker":"NSE","detail":"Dividend and policy checks","type":"Dividend"},
-  {date:"21 May","company":"Macro outlook event","ticker":"NSE","detail":"Investor day and guidance release","type":"IPO"}
-];
-
-// Symbols: start with built-in NSE_STOCKS and allow lazy-loading a larger list from symbols.json
-var SYMBOLS = NSE_STOCKS.slice();
-async function loadSymbols(){
-  if(window.SYMBOLS_LOADED) return;
-  try{
-    var stored = window.localStorage.getItem('nc_symbols');
-    if(stored){
-      var parsed = JSON.parse(stored);
-      if(Array.isArray(parsed) && parsed.length){
-        var map = {};
-        SYMBOLS.forEach(function(s){ if(s && s.t) map[s.t]=s; });
-        parsed.forEach(function(s){ if(s && s.t) map[s.t]=s; });
-        SYMBOLS = Object.keys(map).map(function(k){return map[k];});
-        window.SYMBOLS_LOADED = true;
-        return;
-      }
-    }
-    var r = await fetch('symbols.json');
-    var j = await r.json();
-    if(Array.isArray(j)){
-      var map = {};
-      SYMBOLS.forEach(function(s){ if(s && s.t) map[s.t]=s; });
-      j.forEach(function(s){ if(s && s.t) map[s.t]=s; });
-      SYMBOLS = Object.keys(map).map(function(k){return map[k];});
-      window.localStorage.setItem('nc_symbols', JSON.stringify(j));
-    }
-  }catch(e){console.log('Could not load symbols.json',e)}
-  window.SYMBOLS_LOADED = true;
-}
-function getSymbols(){ return SYMBOLS.length>0 ? SYMBOLS : NSE_STOCKS; }
-
-function updateMarketStatus(){
-  try{
-    var now = new Date();
-    var ist = new Date(now.toLocaleString('en-US',{timeZone:'Asia/Kolkata'}));
-    var timeStr = ist.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true});
-    var hours = ist.getHours();
-    var open = hours>=9 && hours<15;
-    document.getElementById('marketTime').textContent = timeStr+' IST';
-    document.getElementById('marketStatus').textContent = open?'Market open':'Market closed';
-    var pill = document.getElementById('marketStatePill');
-    pill.textContent = open?'MARKET OPEN':'MARKET CLOSED';
-    pill.classList.toggle('status-open',open);
-    pill.classList.toggle('status-closed',!open);
-  }catch(e){console.log('Market status update failed',e);}
-}
-
-/* ── Lightweight AI/chat fallback using free APIs ─────── */
+/* ── Claude AI call (with web search) ─────────────────── */
 async function ai(prompt, useSearch) {
-  // Simple intent detection: look for known NSE tickers or crypto names
-  var up = prompt.toUpperCase();
-  await loadSymbols();
-  var syms = getSymbols();
-  for (var i=0;i<syms.length;i++){
-    var t = syms[i].t;
-    if (up.indexOf(t) !== -1) {
-      // Fetch live NSE quote using Yahoo public endpoints first, with optional Alpha Vantage fallback.
-      var q = await fetchLiveQuote(t + '.NS');
-      if (q) return formatStockReply(syms[i], q);
-      if (AV_KEY) {
-        q = await fetchAlphaQuote(t);
-        if (q) return formatStockReply(syms[i], q);
-      }
-      return "Unable to fetch live quote right now. Try again later.";
-    }
-  }
-  // Check for some crypto keywords
-  if (/BTC|BITCOIN|ETH|ETHEREUM|DOGE|DOGECOIN/.test(up)){
-    var id = up.indexOf('BTC')!==-1||up.indexOf('BITCOIN')!==-1? 'bitcoin' : up.indexOf('ETH')!==-1||up.indexOf('ETHEREUM')!==-1? 'ethereum' : 'dogecoin';
-    var p = await fetchCoinPrice(id);
-    if (p) return `Current ${id} price: ${p} (USD).`;
-    return "Unable to fetch crypto price right now.";
-  }
-  // Generic fallback: provide short canned help or instructions
-  return "I can fetch live NSE quotes without an API key using Yahoo public endpoints, or crypto prices for free. Try queries like 'RELIANCE price' or 'BTC price'.";
-}
-
-function formatStockReply(stockMeta, quote){
-  var price = quote.price || quote.regularMarketPrice || quote.lastPrice || 'N/A';
-  var change = quote.change || quote.regularMarketChange || 'N/A';
-  var changePct = quote.changePercent || quote.regularMarketChangePercent || 'N/A';
-  return `${stockMeta.n} (${stockMeta.t}) — Price: ${price} ${quote.currency || ''} — Change: ${change} (${changePct})`;
-}
-
-async function fetchAlphaQuote(symbol){
-  try{
-    var s = symbol.toUpperCase();
-    if(!s.endsWith('.NS')) s += ".NS"; // Alpha Vantage convention for NSE
-    var url = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${encodeURIComponent(s)}&apikey=${AV_KEY}`;
-    var r = await fetch(url);
-    var j = await r.json();
-    var g = j['Global Quote'] || j['Global quote'] || null;
-    if (!g) return null;
-    return {
-      price: g['05. price'] || g['05. Price'] || g['price'] || null,
-      change: g['09. change'] || g['09. Change'] || g['change'] || null,
-      changePercent: g['10. change percent'] || g['10. Change Percent'] || g['change percent'] || null,
-      currency: 'INR'
-    };
-  }catch(e){return null}
-}
-
-async function fetchCoinPrice(id){
-  try{
-    var url = `https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(id)}&vs_currencies=usd`;
-    var r = await fetch(url);
-    var j = await r.json();
-    return j[id] && j[id].usd? j[id].usd : null;
-  }catch(e){return null}
-}
-
-/* ── Yahoo Finance helpers (no API key) ─────────────────── */
-async function fetchLiveQuote(symbol){
-  var quotes = await fetchYahooQuotes(symbol);
-  if(quotes && quotes[0]) return quotes[0];
-  if(AV_KEY){
-    var ticker = symbol.toUpperCase();
-    if(ticker.endsWith('.NS')) ticker = ticker.slice(0, -3);
-    var alpha = await fetchAlphaQuote(ticker);
-    if(alpha && alpha.price){
-      return {
-        regularMarketPrice: parseFloat(alpha.price) || null,
-        regularMarketChange: parseFloat(alpha.change) || 0,
-        regularMarketChangePercent: parseFloat((alpha.changePercent||"0").replace('%','')) || 0,
-        regularMarketDayHigh: null,
-        regularMarketDayLow: null,
-        regularMarketVolume: null,
-        marketCap: null
-      };
-    }
-  }
-  return null;
-}
-
-async function fetchYahooQuotes(symbols){
-  try{
-    symbols = Array.isArray(symbols) ? symbols.join(',') : symbols;
-    var endpoints = [
-      'https://query1.finance.yahoo.com/v7/finance/quote?corsDomain=finance.yahoo.com&symbols=',
-      'https://query2.finance.yahoo.com/v7/finance/quote?corsDomain=finance.yahoo.com&symbols='
-    ];
-    for(var i=0;i<endpoints.length;i++){
-      try{
-        var url = endpoints[i] + encodeURIComponent(symbols);
-        var r = await fetch(url);
-        if(!r.ok) continue;
-        var j = await r.json();
-        var res = (j && j.quoteResponse && j.quoteResponse.result) || [];
-        if(res.length) return res;
-      }catch(e){}
-    }
-  }catch(e){}
-  return [];
-}
-
-async function fetchYahooHistory(symbol, range, interval){
-  try{
-    range = range||'6mo'; interval = interval||'1d';
-    var endpoints = [
-      `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?corsDomain=finance.yahoo.com&range=${range}&interval=${interval}`,
-      `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?corsDomain=finance.yahoo.com&range=${range}&interval=${interval}`
-    ];
-    for(var i=0;i<endpoints.length;i++){
-      try{
-        var r = await fetch(endpoints[i]);
-        if(!r.ok) continue;
-        var j = await r.json();
-        var arr = (j && j.chart && j.chart.result && j.chart.result[0]) || null;
-        if(!arr) continue;
-        return {ts:arr.timestamp || [], close:(arr.indicators && arr.indicators.quote && arr.indicators.quote[0] && arr.indicators.quote[0].close) || []};
-      }catch(e){}
-    }
-  }catch(e){}
-  return null;
-}
-
-function sma(values, period){
-  if(!values||values.length<period) return null;
-  var out = [];
-  for(var i=0;i<=values.length-period;i++){var sum=0; for(var j=0;j<period;j++) sum+=values[i+j]; out.push(sum/period);} return out[out.length-1];
-}
-
-function ema(values, period){
-  if(!values||values.length<period) return null;
-  var k = 2/(period+1); var emaPrev = values.slice(0,period).reduce((a,b)=>a+b,0)/period;
-  for(var i=period;i<values.length;i++){emaPrev = values[i]*k + emaPrev*(1-k);} return emaPrev;
-}
-
-function rsi(values, period){
-  if(!values||values.length<period+1) return null;
-  var gains=0, losses=0;
-  for(var i=values.length-period;i<values.length;i++){var change = values[i]-values[i-1]; if(change>0) gains+=change; else losses+=Math.abs(change);} 
-  var rs = gains/(losses||1); var r = 100 - (100/(1+rs)); return Math.round(r);
+  var body = {
+    model: "claude-sonnet-4-20250514",
+    max_tokens: 1500,
+    messages: [{role:"user", content: prompt}]
+  };
+  if (useSearch) body.tools = [{type:"web_search_20250305", name:"web_search"}];
+  var r = await fetch(API, {
+    method:"POST",
+    headers:{
+      "Content-Type":"application/json",
+      "x-api-key": API_KEY,
+      "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true"
+    },
+    body: JSON.stringify(body)
+  });
+  var d = await r.json();
+  return d.content.map(function(b){return b.type==="text"?b.text:"";}).join("\n");
 }
 
 function pj(txt) {
@@ -646,27 +424,14 @@ document.querySelectorAll(".tab").forEach(function(t){t.addEventListener("click"
 
 /* ── search dropdown (instant local filter) ─────────────── */
 var si=document.getElementById("si"), dd=document.getElementById("dd");
-si.addEventListener("input",async function(){
-  await loadSymbols();
+si.addEventListener("input",function(){
   var q=si.value.trim().toLowerCase();
   if(q.length<1){dd.classList.remove("open");return;}
-  var list = getSymbols();
-  var found=list.filter(function(s){return s.t.toLowerCase().includes(q)||s.n.toLowerCase().includes(q)||s.s.toLowerCase().includes(q);}).slice(0,8);
-  // Always offer an option to search the exact typed ticker across all NSE symbols
-  var qUp = q.toUpperCase();
-  var items = [];
-  // if there's an exact ticker in list, prioritize it
-  var exact = list.find(function(s){return s.t===qUp;});
-  if(exact){ items.push(exact); }
-  // add filtered results (avoid duplicates)
-  found.forEach(function(s){ if(!items.find(function(x){return x.t===s.t;})) items.push(s); });
-  // build HTML: if no matches or user typed something not in list, add a 'Search all' entry
-  dd.innerHTML = items.map(function(s){
+  var found=NSE_STOCKS.filter(function(s){return s.t.toLowerCase().includes(q)||s.n.toLowerCase().includes(q)||s.s.toLowerCase().includes(q);}).slice(0,8);
+  if(!found.length){dd.classList.remove("open");return;}
+  dd.innerHTML=found.map(function(s){
     return '<div class="ddr" data-t="'+s.t+'"><span class="ddr-tick">'+s.t+'</span><span class="ddr-name">'+s.n+'</span><span style="font-size:10px;color:#475569">'+s.s+'</span></div>';
   }).join("");
-  if(!items.find(function(x){return x.t===qUp;})){
-    dd.innerHTML = '<div class="ddr" data-t="'+qUp+'"><span class="ddr-tick">'+qUp+'</span><span class="ddr-name">Search all NSE tickers for this symbol</span><span style="font-size:10px;color:#64748b">Search</span></div>' + dd.innerHTML;
-  }
   dd.classList.add("open");
 });
 dd.addEventListener("click",function(e){var row=e.target.closest(".ddr");if(row){dd.classList.remove("open");si.value=row.getAttribute("data-t");runAnalysis(row.getAttribute("data-t"));}});
@@ -676,14 +441,13 @@ si.addEventListener("keydown",function(e){if(e.key==="Enter"&&si.value.trim()){d
 /* ── HOME: news ─────────────────────────────────────────── */
 async function loadNews(force){
   if(!force&&CACHE.news&&fresh(CACHE.newsTs,TTL_SHORT)){renderNews(CACHE.news);return;}
+  document.getElementById("newsBody").innerHTML=skels(56,3);
   try{
-    // In no-key mode, show a realistic stock market news feed using fallback headlines.
-    CACHE.news = FALLBACK_NEWS;
-    CACHE.newsTs = Date.now();
-    renderNews(FALLBACK_NEWS);
-  }catch(e){
-    document.getElementById("newsBody").innerHTML='<div style="color:#64748b;font-size:13px;padding:18px;text-align:center">News is not available right now. Tap Refresh.</div>';
-  }
+    var txt=await ai("Search web for 5 latest Indian NSE BSE stock market news headlines today "+new Date().toDateString()+". Return ONLY raw JSON array: [{headline,source,time,sentiment,ticker}] sentiment=Positive/Negative/Neutral ticker=NSE ticker if mentioned. No markdown.",true);
+    var arr=pja(txt);
+    if(!arr||!arr.length)throw"fail";
+    CACHE.news=arr; CACHE.newsTs=Date.now(); renderNews(arr);
+  }catch(e){document.getElementById("newsBody").innerHTML='<div style="color:#475569;font-size:12px;padding:8px">Could not load news. Tap Refresh.</div>';}
 }
 function renderNews(arr){
   document.getElementById("newsBody").innerHTML=arr.map(function(n){
@@ -700,22 +464,11 @@ async function loadTrending(force){
   if(!force&&CACHE.trend&&fresh(CACHE.trendTs,TTL_SHORT)){renderTrend(CACHE.trend);return;}
   document.getElementById("trendBody").innerHTML=skels(58,4);
   try{
-    // Fetch quotes for known NSE tickers via Yahoo (no API key)
-    var symbols = NSE_STOCKS.map(function(s){return s.t+".NS";}).join(',');
-    var q = await fetchYahooQuotes(symbols);
-    if(!q||!q.length) throw 'fail';
-    q.forEach(function(it){it.changePct = parseFloat(it.regularMarketChangePercent)||0;});
-    q.sort(function(a,b){return Math.abs(b.changePct)-Math.abs(a.changePct);} );
-    var top = q.slice(0,8).map(function(it){
-      var tick = (it.symbol||"").replace('.NS','');
-      var meta = NSE_STOCKS.find(function(s){return s.t===tick})||{n:tick,emoji:'📊'};
-      return {ticker:tick,company:meta.n,emoji:meta.e,price:(it.regularMarketPrice?('₹'+it.regularMarketPrice):'—'),changePct:((it.regularMarketChangePercent||0).toFixed(2)+'%'),trend:(it.regularMarketChangePercent>=0?'Bullish':'Bearish')};
-    });
-    if(!top.length) throw 'fail';
-    CACHE.trend=top; CACHE.trendTs=Date.now(); renderTrend(top);
-  }catch(e){
-    CACHE.trend=FALLBACK_TREND; CACHE.trendTs=Date.now(); renderTrend(FALLBACK_TREND);
-  }
+    var txt=await ai("Search NSE India most active top movers stocks right now today "+new Date().toDateString()+". Pick 8 stocks with biggest moves. Return ONLY raw JSON array: [{ticker,company,emoji,price,changePct,trend}] trend=Bullish/Bearish/Neutral price with ₹ symbol. No markdown.",true);
+    var arr=pja(txt);
+    if(!arr||!arr.length)throw"fail";
+    CACHE.trend=arr; CACHE.trendTs=Date.now(); renderTrend(arr);
+  }catch(e){document.getElementById("trendBody").innerHTML='<div style="color:#475569;font-size:12px;padding:8px">Could not load. Tap Refresh.</div>';}
 }
 function renderTrend(arr){
   document.getElementById("trendBody").innerHTML=arr.map(function(s){
@@ -734,21 +487,17 @@ document.getElementById("btnRefreshTrend").addEventListener("click",function(){l
 /* ── HOME: indexes ──────────────────────────────────────── */
 async function loadIndexes(){
   try{
-    // Yahoo symbols: ^NSEI (Nifty 50), ^BSESN (Sensex)
-    var d1 = await fetchYahooQuotes('^NSEI,^BSESN');
-    var nifty = d1.find(function(x){return x.symbol==='^NSEI'}) || {};
-    var sensex = d1.find(function(x){return x.symbol==='^BSESN'}) || {};
+    var txt=await ai("Search current live values of NIFTY 50 and SENSEX right now today "+new Date().toDateString()+". Return ONLY raw JSON: {nifty:{value,change,changePct},sensex:{value,change,changePct}}. No markdown.",true);
+    var d=pj(txt);
+    if(!d)throw"fail";
     function icard(name,data){
       if(!data)return"";
-      var up=isUp(data.regularMarketChangePercent||data.regularMarketChange);
+      var up=isUp(data.changePct||data.change);
       var c=up?"#22c55e":"#ef4444";
-      return'<div class="gc"><div class="gc-lbl">'+name+'</div><div class="gc-val" style="color:'+c+'">'+(data.regularMarketPrice||"—")+'</div><div class="gc-sub" style="color:'+c+'">'+(up?"▲":"▼")+" "+((data.regularMarketChangePercent||0).toFixed(2)+'%')+'</div></div>';
+      return'<div class="gc"><div class="gc-lbl">'+name+'</div><div class="gc-val" style="color:'+c+'">'+(data.value||"—")+'</div><div class="gc-sub" style="color:'+c+'">'+(up?"▲":"▼")+" "+(data.changePct||data.change||"—")+'</div></div>';
     }
-    document.getElementById("indexCards").innerHTML=icard("NIFTY 50",nifty)+icard("SENSEX",sensex);
-  }catch(e){
-    console.log(e);
-    document.getElementById("indexCards").innerHTML = icard("NIFTY 50", FALLBACK_INDEXES.nifty) + icard("SENSEX", FALLBACK_INDEXES.sensex);
-  }
+    document.getElementById("indexCards").innerHTML=icard("NIFTY 50",d.nifty)+icard("SENSEX",d.sensex);
+  }catch(e){}
 }
 
 /* ── FULL ANALYSIS ──────────────────────────────────────── */
@@ -759,38 +508,34 @@ async function runAnalysis(ticker){
   if(CACHE.analysis[ticker]&&fresh(CACHE.analysis[ticker].ts)){renderAnalysis(CACHE.analysis[ticker].d);return;}
   body.innerHTML=ldng("Analyzing "+ticker+"…");
   try{
-    await loadSymbols();
-    var stock = getSymbols().find(function(s){return s.t===ticker;}) || NSE_STOCKS.find(function(s){return s.t===ticker;}) || {e:"📊",n:ticker,s:"NSE"};
-    // Fetch live quote and history from Yahoo first, then Alpha Vantage fallback when available.
-    var sym = ticker.endsWith('.NS') ? ticker : ticker + '.NS';
-    var q = await fetchLiveQuote(sym) || {};
-    var hist = await fetchYahooHistory(sym,'6mo','1d');
-    var closes = hist && hist.close? hist.close.filter(x=>x!=null):[];
-    var price = q.regularMarketPrice || null;
-    var change = q.regularMarketChange || 0;
-    var changePct = (q.regularMarketChangePercent||0).toFixed(2)+'%';
-    var high = q.regularMarketDayHigh || q.regularMarketPreviousClose || null;
-    var low = q.regularMarketDayLow || null;
-    var volume = q.regularMarketVolume || null;
-    var marketCap = q.marketCap || null;
-    var ema20 = ema(closes,20); var ema50 = ema(closes,50); var ema200 = ema(closes,200);
-    var rsi14 = rsi(closes,14);
-    var trend = (price && ema50 && price>ema50)? 'Bullish':(price&&ema50? 'Bearish':'Neutral');
-    var tradeDirection = trend==='Bullish' && rsi14 && rsi14<70? 'BUY': trend==='Bearish' && rsi14 && rsi14>30? 'SELL':'WAIT';
-    var confidence = Math.min(90,Math.max(40, Math.round((ema50?60:40) + (rsi14? (50-Math.abs(50-rsi14))/2 : 0))));
-    var probBull = confidence; var probBear = 100-confidence;
-    var support1 = closes.slice(-20).reduce((a,b)=>Math.min(a,b),Infinity).toFixed(2);
-    var resistance1 = closes.slice(-20).reduce((a,b)=>Math.max(a,b),0).toFixed(2);
-    var reasons = ["Technical indicators computed from recent price history. No web news used."]; 
-    var d = {price: price?('₹'+price):'N/A', change: change, changePct: changePct, high: high, low: low, volume: volume, marketCap: marketCap,
-             rsi: rsi14, rsiSignal: rsi14>70? 'Overbought':rsi14<30? 'Oversold':'Neutral', macd: 'N/A', macdSignal:'N/A', volumeSignal:'N/A',
-             ema20: ema20?('₹'+ema20.toFixed(2)):'N/A', ema50: ema50?('₹'+ema50.toFixed(2)):'N/A', ema200: ema200?('₹'+ema200.toFixed(2)):'N/A', smaSignal: (price && ema50?(price>ema50?'Bullish':'Bearish'):'Neutral'),
-             support1: support1, support2:'N/A', resistance1: resistance1, resistance2:'N/A', fiiActivity:'N/A', diiActivity:'N/A', optionsOI:'N/A',
-             trend: trend, confidence: confidence, tradeDirection: tradeDirection, entry: (price?('₹'+(price*0.99).toFixed(2)):'—'), stopLoss:(price?('₹'+(price*0.97).toFixed(2)):'—'), target1:(price?('₹'+(price*1.03).toFixed(2)):'—'), target2:(price?('₹'+(price*1.08).toFixed(2)):'—'),
-             probBull: probBull, probBear: probBear, riskLevel: confidence>70?'Low':confidence<45?'High':'Medium', riskScore: Math.round(100-confidence),
-             reasons: reasons, summary: 'Automated technical summary (no web AI). Check fundamentals and news separately.', newsHeadline:null, newsSentiment:null, sectorMomentum:'N/A'};
+    var stock=NSE_STOCKS.find(function(s){return s.t===ticker;})||{e:"📊",n:ticker,s:"NSE"};
+    var txt=await ai(
+      "You are an expert Indian stock market analyst. Search the web for '"+ticker+"' stock listed on NSE or BSE India.\n"+
+      "IMPORTANT: Even if exact live price is not available, use the most recent data you can find and ESTIMATE missing values based on your knowledge.\n"+
+      "Today: "+new Date().toDateString()+"\n"+
+      "Return ONLY a raw JSON object with ALL these keys filled (use estimates if needed, never leave empty):\n"+
+      "{price,change,changePct,high,low,volume,marketCap,"+
+      "rsi,rsiSignal,macd,macdSignal,volumeSignal,"+
+      "ema20,ema50,ema200,smaSignal,"+
+      "support1,support2,resistance1,resistance2,"+
+      "fiiActivity,diiActivity,optionsOI,"+
+      "trend,confidence,tradeDirection,"+
+      "entry,stopLoss,target1,target2,"+
+      "probBull,probBear,riskLevel,riskScore,"+
+      "reasons,summary,newsHeadline,newsSentiment,sectorMomentum,"+
+      "news:[{headline,source,time,sentiment}]}\n"+
+      "For price use ₹ symbol. For unknown fields use best estimates. No markdown, no explanation.",true);
+    var d=pj(txt);
+    if(!d)throw"fail";
+    // fill any missing fields with fallbacks
+    d.price=d.price||"N/A"; d.trend=d.trend||"Neutral"; d.confidence=d.confidence||55;
+    d.tradeDirection=d.tradeDirection||"WAIT"; d.riskLevel=d.riskLevel||"Medium";
+    d.riskScore=d.riskScore||50; d.probBull=d.probBull||50; d.probBear=d.probBear||50;
+    d.reasons=d.reasons||["Insufficient data — use with caution"];
+    d.summary=d.summary||"Analysis based on limited available data. Please verify before trading.";
     d.ticker=ticker; d.company=stock.n; d.sector=stock.s; d.emoji=stock.e;
-    CACHE.analysis[ticker]={d:d,ts:Date.now()}; renderAnalysis(d);
+    CACHE.analysis[ticker]={d:d,ts:Date.now()};
+    renderAnalysis(d);
   }catch(e){body.innerHTML='<div style="text-align:center;padding:40px;color:#ef4444">⚠️ Could not analyze "'+ticker+'". Try again.</div>';}
 }
 
@@ -854,7 +599,7 @@ function renderAnalysis(d){
         '<div class="gc"><div class="gc-lbl">MA Signal</div><div class="gc-val" style="font-size:11px;color:'+smc+'">'+(d.smaSignal||"—")+'</div></div>'+
       '</div>'+
     '</div>'+
-    '<div class="sec"><div class="sec-hdr"><span class="sec-title">AI Prediction <span class="src src-ai">AI (free)</span></span></div>'+
+    '<div class="sec"><div class="sec-hdr"><span class="sec-title">AI Prediction <span class="src src-ai">Claude AI</span></span></div>'+
       '<div class="pred-row">'+
         '<div>'+
           '<span class="pbadge" style="color:'+t.c+';background:'+t.bg+';border-color:'+t.b+'">'+(d.trend==="Bullish"?"🟢":d.trend==="Bearish"?"🔴":"🟡")+" "+(d.trend||"—")+'</span>'+
@@ -894,16 +639,8 @@ async function runNextDay(ticker){
   if(CACHE.nextday[ticker]&&fresh(CACHE.nextday[ticker].ts)){renderNextDay(CACHE.nextday[ticker].d);return;}
   body.innerHTML=ldng("Predicting tomorrow for "+ticker+"…");
   try{
-    // Build next-day prediction from technical analysis (no AI/web search)
-    await runAnalysis(ticker);
-    var base = CACHE.analysis[ticker] && CACHE.analysis[ticker].d;
-    if(!base) throw 'fail';
-    var trend = base.trend || 'Neutral';
-    var confidence = base.confidence || 55;
-    var gapUpDown = trend==='Bullish'?'Gap Up likely':'Gap Down possible';
-    var expectedRange = base.price && base.price.startsWith('₹')? ( (parseFloat(base.price.replace('₹',''))*0.98).toFixed(2) + ' - ' + (parseFloat(base.price.replace('₹',''))*1.02).toFixed(2) ) : '—';
-    var keyLevel = base.support1 || base.resistance1 || '—';
-    var d = {company: base.company, ticker: base.ticker, trend: trend, confidence: confidence, gapUpDown: gapUpDown, expectedRange: expectedRange, keyLevel: keyLevel, catalysts: [], entry: base.entry, stopLoss: base.stopLoss, target1: base.target1, riskLevel: base.riskLevel, riskScore: base.riskScore, probBull: base.probBull, probBear: base.probBear, reasons: base.reasons, summary: 'Next-day view derived from technical indicators (no web AI).', currentPrice: base.price};
+    var txt=await ai("Expert Indian stock analyst. Search today's live data for "+ticker+" NSE India "+new Date().toDateString()+". Predict TOMORROW's likely price movement. Return ONLY raw JSON: {company,ticker,trend,confidence,gapUpDown,expectedRange,keyLevel,catalysts,entry,stopLoss,target1,riskLevel,riskScore,probBull,probBear,reasons,summary,currentPrice}. No markdown.",true);
+    var d=pj(txt);if(!d)throw"fail";
     CACHE.nextday[ticker]={d:d,ts:Date.now()}; renderNextDay(d);
   }catch(e){body.innerHTML='<div style="text-align:center;padding:30px;color:#ef4444">Could not predict. Try again.</div>';}
 }
@@ -920,7 +657,7 @@ function renderNextDay(d){
     '</div>'+
     (Array.isArray(d.catalysts)&&d.catalysts.length?'<div class="sec"><div class="sec-title" style="margin-bottom:10px">📌 Watch Tomorrow</div>'+d.catalysts.map(function(c){return'<div class="reason">'+c+'</div>';}).join("")+'</div>':"")+
     '<div class="sec">'+
-      '<div class="sec-hdr"><span class="sec-title">Prediction <span class="src src-ai">AI (free)</span></span>'+
+      '<div class="sec-hdr"><span class="sec-title">Prediction <span class="src src-ai">Claude</span></span>'+
       '<span class="pbadge" style="font-size:11px;color:'+t.c+';background:'+t.bg+';border:1px solid '+t.b+'">'+(d.trend==="Bullish"?"🟢":"🔴")+" "+(d.trend||"—")+'</span></div>'+
       '<div class="prob-labels"><span style="color:#22c55e">🟢 Bullish '+pb+'%</span><span style="color:#ef4444">Bearish '+pbe+'% 🔴</span></div>'+
       '<div class="prob-bar"><div class="pb-b" style="width:'+pb+'%"></div><div class="pb-r" style="width:'+pbe+'%"></div></div>'+
@@ -950,15 +687,13 @@ async function runOutlook(ticker){
     if(tf==="both")prompt="Expert Indian stock analyst. Search live data for "+ticker+" NSE India today "+new Date().toDateString()+". Give SHORT TERM (1-2 weeks) AND LONG TERM (3-12 months) outlook. Return ONLY raw JSON with keys shortTerm and longTerm each: {trend,confidence,entry,stopLoss,target1,target2,riskLevel,riskScore,probBull,reasons,summary,keyEvents}. No markdown.";
     else if(tf==="short")prompt="Expert Indian stock analyst. Search "+ticker+" NSE India. SHORT TERM 1-2 week swing trade outlook. Return ONLY raw JSON: {trend,confidence,entry,stopLoss,target1,target2,riskLevel,riskScore,probBull,reasons,summary,keyEvents,catalysts}. No markdown.";
     else prompt="Expert Indian stock analyst. Search "+ticker+" NSE India. LONG TERM 3-12 month investment outlook. Return ONLY raw JSON: {trend,confidence,entry,stopLoss,target1,target2,riskLevel,riskScore,probBull,reasons,summary,growthDrivers,valuationView}. No markdown.";
-    // Build outlook from technicals (no AI). Use moving averages and RSI to form short/long views.
-    await runAnalysis(ticker);
-    var base = CACHE.analysis[ticker] && CACHE.analysis[ticker].d;
-    if(!base) throw 'fail';
-    var shortTerm = {trend: base.trend, confidence: Math.max(40,Math.min(90,base.confidence||55)), entry: base.entry, stopLoss: base.stopLoss, target1: base.target1, target2: base.target2, riskLevel: base.riskLevel, riskScore: base.riskScore, probBull: base.probBull, reasons: base.reasons, summary: 'Short-term view from technical indicators.'};
-    var longTerm = {trend: (base.ema200 && base.price && parseFloat(base.price.replace('₹',''))>parseFloat((base.ema200||'0').replace('₹','')))?'Bullish':'Neutral', confidence: Math.max(35,Math.min(85,base.confidence||55)), entry: base.entry, stopLoss: base.stopLoss, target1: base.target1, target2: base.target2, riskLevel: base.riskLevel, riskScore: base.riskScore, probBull: base.probBull, reasons: base.reasons, summary: 'Long-term outlook based on MA trend.'};
-    var html = '<div style="font-size:11px;color:#3b82f6;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">⚡ Short Term (1–2 Weeks)</div>'+oCard(shortTerm,"short")+
-           '<div style="font-size:11px;color:#f59e0b;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin:13px 0 8px">🏔 Long Term (3–12 Months)</div>'+oCard(longTerm,"long")+
-          '<div class="disc">🤖 AI (free) · ⚠️ Not financial advice</div>';
+    var txt=await ai(prompt,true); var d=pj(txt); if(!d)throw"fail";
+    var html;
+    if(tf==="both"&&d.shortTerm&&d.longTerm)
+      html='<div style="font-size:11px;color:#3b82f6;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">⚡ Short Term (1–2 Weeks)</div>'+oCard(d.shortTerm,"short")+
+           '<div style="font-size:11px;color:#f59e0b;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin:13px 0 8px">🏔 Long Term (3–12 Months)</div>'+oCard(d.longTerm,"long")+
+           '<div class="disc">🤖 Claude AI · ⚠️ Not financial advice</div>';
+    else html=oCard(d,tf)+'<div class="disc">🤖 Claude AI · ⚠️ Not financial advice</div>';
     CACHE.outlook[key]={html:html,ts:Date.now()}; body.innerHTML=html;
   }catch(e){body.innerHTML='<div style="text-align:center;padding:30px;color:#ef4444">Could not load. Try again.</div>';}
 }
@@ -1001,22 +736,10 @@ async function loadGlobal(force){
   if(!force&&CACHE.global&&fresh(CACHE.globalTs,TTL_SHORT)){renderGlobal(CACHE.global);return;}
   document.getElementById("globalBody").innerHTML=skels(80,3);
   try{
-    // Fetch common global symbols via Yahoo (no key)
-    var syms = '^NSEI,^BSESN,\^DJI,\^IXIC,\^HSI,CL=F,GC=F,INR=X';
-    var res = await fetchYahooQuotes(syms);
-    var map = {};
-    res.forEach(function(it){map[it.symbol]=it;});
-    var d = {
-      nifty: map['^NSEI'], sensex: map['^BSESN'], dow: map['^DJI'], nasdaq: map['^IXIC'], hangseng: map['^HSI'],
-      crude: map['CL=F'], gold: map['GC=F'], usdinr: map['INR=X'], sgxNifty: map['^NSEI']
-    };
+    var txt=await ai("Search live global market values right now today "+new Date().toDateString()+". Return ONLY raw JSON: {nifty:{value,change,dir},sensex:{value,change,dir},sgxNifty:{value,change,dir},dow:{value,change,dir},nasdaq:{value,change,dir},hangseng:{value,change,dir},crude:{value,change,dir},gold:{value,change,dir},usdinr:{value,change,dir},fearGreed:{score,label},globalImpact,keyRisks}. No markdown.",true);
+    var d=pj(txt); if(!d)throw"fail";
     CACHE.global=d; CACHE.globalTs=Date.now(); renderGlobal(d);
-  }catch(e){
-    console.log(e);
-    CACHE.global = FALLBACK_GLOBAL;
-    CACHE.globalTs = Date.now();
-    renderGlobal(FALLBACK_GLOBAL);
-  }
+  }catch(e){document.getElementById("globalBody").innerHTML='<div style="text-align:center;padding:30px;color:#ef4444">Could not load. Tap Refresh.</div>';}
 }
 function renderGlobal(d){
   function gc(name,data,emoji){
@@ -1045,8 +768,9 @@ async function loadCal(force){
   if(!force&&CACHE.cal&&fresh(CACHE.calTs,60*60*1000)){renderCal(CACHE.cal);return;}
   document.getElementById("calBody").innerHTML=skels(56,4);
   try{
-    // Calendar/events require a web data source. In free no-key mode, show a helpful message.
-    document.getElementById("calBody").innerHTML='<div style="color:#64748b;font-size:13px;padding:18px;text-align:center">Calendar events are not available in no-key mode. Provide an events RSS or enable a calendar API to populate this list.</div>';
+    var txt=await ai("Search for upcoming Indian NSE BSE stock market events this week and next 2 weeks. Today: "+new Date().toDateString()+". Include earnings results, IPO listings, board meetings, dividends, FPOs. Return ONLY raw JSON array 12 items: [{date,company,ticker,type,detail}] type=Earnings/IPO/Dividend/Result/BoardMeeting. No markdown.",true);
+    var arr=pja(txt); if(!arr||!arr.length)throw"fail";
+    CACHE.cal=arr; CACHE.calTs=Date.now(); renderCal(arr);
   }catch(e){document.getElementById("calBody").innerHTML='<div style="text-align:center;padding:30px;color:#ef4444">Could not load. Tap Refresh.</div>';}
 }
 function renderCal(arr){
@@ -1074,26 +798,13 @@ async function sendChat(){
   msgs.innerHTML+='<div class="cmsg cmsg-ai" id="'+tid+'"><span class="mspin"></span> Thinking…</div>';
   msgs.scrollTop=msgs.scrollHeight;
   try{
-    // Lightweight chat: if user asked about a ticker, show analysis; if crypto, show price; else provide help.
-    await loadSymbols();
-    var up = q.toUpperCase();
-    var found = getSymbols().find(function(s){return up.indexOf(s.t)!==-1 || up.indexOf(s.n.toUpperCase())!==-1;});
-    var el=document.getElementById(tid);
-    if(found){ await runAnalysis(found.t); var summary = (CACHE.analysis[found.t] && CACHE.analysis[found.t].d && CACHE.analysis[found.t].d.summary) || 'No analysis available.'; if(el) el.innerHTML = summary; }
-    else if(/BTC|BITCOIN|ETH|ETHEREUM|DOGE|DOGECOIN/.test(up)){
-      var id = up.indexOf('BTC')!==-1||up.indexOf('BITCOIN')!==-1? 'bitcoin' : up.indexOf('ETH')!==-1||up.indexOf('ETHEREUM')!==-1? 'ethereum' : 'dogecoin';
-      var p = await fetchCoinPrice(id);
-      if(el) el.innerHTML = p? ('Current '+id+' price: $'+p): 'Could not fetch price.';
-    } else {
-      if(el) el.innerHTML = 'I can show live NSE quotes and simple technical analysis without any API key. Try: "RELIANCE price" or "BTC price".';
-    }
+    var txt=await ai("You are NanduChandu Markets AI, expert in Indian NSE/BSE stocks. Search web for latest info. Answer concisely in 3-4 sentences. User asked: "+q,true);
+    var el=document.getElementById(tid); if(el)el.innerHTML=txt.replace(/```/g,"").trim().slice(0,600);
   }catch(e){var el=document.getElementById(tid);if(el)el.innerHTML="Sorry, couldn't fetch that. Please try again.";}
   msgs.scrollTop=msgs.scrollHeight;
 }
 
 /* ── INIT: load home data in parallel ────────────────────── */
-updateMarketStatus();
-setInterval(updateMarketStatus,60000);
 Promise.all([loadNews(), loadTrending(), loadIndexes()]);
 </script>
 </body>
