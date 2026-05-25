@@ -512,10 +512,36 @@ async function freeAI(prompt) {
 }
 
 function pj(txt) {
-  try { var s=txt.replace(/```json/g,"").replace(/```/g,"").trim(); var m=s.match(/\{[\s\S]*\}/); return m?JSON.parse(m[0]):null; } catch(e){return null;}
+  try {
+    if (!txt) return null;
+    var start = txt.indexOf('{');
+    var end = txt.lastIndexOf('}');
+    if (start === -1 || end === -1) return null;
+    var cleanStr = txt.substring(start, end + 1);
+    
+    // Clean trailing commas that break JSON.parse
+    cleanStr = cleanStr.replace(/,(\s*[\]}])/g, '$1');
+    return JSON.parse(cleanStr);
+  } catch(e) {
+    console.warn("AI Object parsing failed:", e);
+    return null;
+  }
 }
+
 function pja(txt) {
-  try { var s=txt.replace(/```json/g,"").replace(/```/g,"").trim(); var m=s.match(/\[[\s\S]*\]/); return m?JSON.parse(m[0]):null; } catch(e){return null;}
+  try {
+    if (!txt) return null;
+    var start = txt.indexOf('[');
+    var end = txt.lastIndexOf(']');
+    if (start === -1 || end === -1) return null;
+    var cleanStr = txt.substring(start, end + 1);
+    
+    cleanStr = cleanStr.replace(/,(\s*[\]}])/g, '$1');
+    return JSON.parse(cleanStr);
+  } catch(e) {
+    console.warn("AI Array parsing failed:", e);
+    return null;
+  }
 }
 function isUp(v){return !String(v||"0").trim().startsWith("-");}
 function fmtVol(v){if(!v)return"—";if(v>10000000)return(v/10000000).toFixed(1)+"Cr";if(v>100000)return(v/100000).toFixed(1)+"L";return String(v);}
