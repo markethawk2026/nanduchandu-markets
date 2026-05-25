@@ -25,6 +25,13 @@ body.light .tfb.active{background:#eff6ff;border-color:#3b82f6;color:#2563eb}
 body.light input[type=text]{background:#f8fafc!important;border-color:#e2e8f0!important;color:#0f172a!important}
 body.light .skel{background:linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f0 75%)!important}
 
+body.light .acrd { background: #fff; border-color: #e2e8f0; color: #0f172a; }
+body.light .bbtn { background: #fff; border-color: #e2e8f0; color: #475569; }
+body.light .bbtn:hover { background: #f1f5f9; color: #0f172a; }
+body.light .abtn { background: #2563eb; border: none; color: #ffffff; }
+body.light .abtn:hover { background: #1d4ed8; }
+body.light .cmai { background: #f8fafc; border-color: #e2e8f0; color: #334155; }
+
 @keyframes logoSpin{to{transform:rotate(360deg)}}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -176,7 +183,6 @@ body.light .skel{background:linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f
 <body>
 
 <div class="bar">
-  <!-- LOGO -->
   <div style="display:flex;align-items:center;gap:0;flex-shrink:0;cursor:pointer" onclick="switchTab('home')">
     <div style="position:relative;width:38px;height:38px;flex-shrink:0">
       <div style="position:absolute;inset:0;border-radius:12px;background:linear-gradient(135deg,#f59e0b,#ef4444,#a855f7,#3b82f6);animation:logoSpin 4s linear infinite;opacity:.9"></div>
@@ -217,8 +223,17 @@ body.light .skel{background:linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f
   <div class="tab" data-tab="chat">🤖 AI Chat</div>
 </div>
 
-<!-- HOME -->
 <div class="page show" id="pg-home">
+  <div style="margin-bottom: 14px; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 2px 4px;">
+    <span style="font-size: 11px; color: #64748b; align-self: center; margin-right: 4px; font-weight: 600; white-space: nowrap;">⚡ Quick View:</span>
+    <span class="csg" onclick="runAnalysis('RELIANCE')" style="margin:0; padding: 5px 12px;">RELIANCE</span>
+    <span class="csg" onclick="runAnalysis('TCS')" style="margin:0; padding: 5px 12px;">TCS</span>
+    <span class="csg" onclick="runAnalysis('INFY')" style="margin:0; padding: 5px 12px;">INFY</span>
+    <span class="csg" onclick="runAnalysis('HFCL')" style="margin:0; padding: 5px 12px;">HFCL</span>
+    <span class="csg" onclick="runAnalysis('TATAMOTORS')" style="margin:0; padding: 5px 12px;">TATAMOTORS</span>
+    <span class="csg" onclick="runAnalysis('SBIN')" style="margin:0; padding: 5px 12px;">SBIN</span>
+  </div>
+
   <div class="sec">
     <div class="shr">
       <span class="stitle">📰 Market News <span class="badge b-free">Yahoo Finance · Free</span></span>
@@ -244,7 +259,6 @@ body.light .skel{background:linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f
   </div>
 </div>
 
-<!-- ANALYSIS -->
 <div class="page" id="pg-analysis">
   <div id="aBody">
     <div style="text-align:center;padding:60px 20px">
@@ -255,7 +269,6 @@ body.light .skel{background:linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f
   </div>
 </div>
 
-<!-- NEXT DAY -->
 <div class="page" id="pg-nextday">
   <div class="sec">
     <div class="stitle" style="margin-bottom:12px">📅 Next Day Prediction</div>
@@ -267,7 +280,6 @@ body.light .skel{background:linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f
   <div id="ndBody"></div>
 </div>
 
-<!-- OUTLOOK -->
 <div class="page" id="pg-term">
   <div class="sec">
     <div class="stitle" style="margin-bottom:12px">📈 Short &amp; Long Term Outlook</div>
@@ -284,7 +296,6 @@ body.light .skel{background:linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f
   <div id="tmBody"></div>
 </div>
 
-<!-- GLOBAL -->
 <div class="page" id="pg-global">
   <div class="sec">
     <div class="shr">
@@ -295,7 +306,6 @@ body.light .skel{background:linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f
   </div>
 </div>
 
-<!-- CALENDAR -->
 <div class="page" id="pg-calendar">
   <div class="sec">
     <div class="shr">
@@ -306,7 +316,6 @@ body.light .skel{background:linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f
   </div>
 </div>
 
-<!-- CHAT -->
 <div class="page" id="pg-chat">
   <div class="sec">
     <div class="stitle" style="margin-bottom:10px">🤖 AI Market Assistant <span class="badge b-free">100% Free</span></div>
@@ -342,7 +351,7 @@ var YF_NEWS   = "https://query2.finance.yahoo.com/v1/finance/search?q=";
 var NSE_BASE  = "https://www.nseindia.com/api/";
 
 var POLL_AI   = "https://text.pollinations.ai/";
-var GEMINI_KEY = "AIzaSyCr2FtCRE7LB1_hGCOdKz2gHtng4ezUvLM";
+var GEMINI_KEY = ""; 
 var GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=";
 
 var activeTF = "both", isLight = false;
@@ -352,7 +361,6 @@ function fresh(ts,t){return ts&&(Date.now()-ts)<t;}
 
 // ── UPGRADED FETCH VIA CORS PROXY ───────────────────────────
 async function proxyFetch(url) {
-  // Switched to corsproxy.io for cleaner, faster routing
   var r = await fetch("https://corsproxy.io/?" + encodeURIComponent(url));
   if (!r.ok) throw new Error("Proxy fetch failed");
   return await r.json();
@@ -362,14 +370,12 @@ async function proxyFetch(url) {
 async function yfQuote(ticker) {
   ticker = ticker.toUpperCase().trim();
   
-  // Auto-map user-friendly names and prevent double encoding issues
   if (ticker === "NIFTY50" || ticker === "NIFTY 50" || ticker === "%5ENSEI") ticker = "^NSEI";
   if (ticker === "SENSEX" || ticker === "%5EBSESN") ticker = "^BSESN";
   
   var ck = ticker;
   if (CACHE.prices[ck] && fresh(CACHE.prices[ck].ts, TTL.s)) return CACHE.prices[ck].d;
   
-  // If it's a global index or commodity, don't append .NS/.BO suffixes
   var suffixes = [".NS", ".BO", ""];
   if (ticker.startsWith("^") || ticker.includes("=") || ticker.includes("-")) {
     suffixes = [""];
@@ -378,17 +384,19 @@ async function yfQuote(ticker) {
   for (var i = 0; i < suffixes.length; i++) {
     try {
       var sym = ticker + suffixes[i];
-      var url = YF_QUOTE + encodeURIComponent(sym) + "?interval=1d&range=1y";
+      var url = YF_QUOTE + sym + "?interval=1d&range=1y";
       var j = await proxyFetch(url);
       var res = j.chart && j.chart.result && j.chart.result[0];
       if (!res) continue;
       var m = res.meta;
       if (!m.regularMarketPrice) continue;
-      var chg = m.regularMarketPrice - (m.chartPreviousClose || m.previousClose || m.regularMarketPrice);
-      var chgp = ((chg / (m.chartPreviousClose || m.regularMarketPrice || 1)) * 100);
+      var rPrice = m.regularMarketPrice;
+      var prevClose = m.chartPreviousClose || m.previousClose || rPrice;
+      var chg = rPrice - prevClose;
+      var chgp = (chg / prevClose) * 100;
       var d = {
-        price:    "₹" + m.regularMarketPrice.toFixed(2),
-        raw:      m.regularMarketPrice,
+        price:    "₹" + rPrice.toFixed(2),
+        raw:      rPrice,
         change:   (chg >= 0 ? "+" : "") + chg.toFixed(2),
         changePct:(chg >= 0 ? "+" : "") + chgp.toFixed(2) + "%",
         high:     "₹" + (m.regularMarketDayHigh || 0).toFixed(2),
@@ -406,6 +414,7 @@ async function yfQuote(ticker) {
   }
   return null;
 }
+
 // ── Yahoo Finance: search stocks dynamically ────────────
 async function yfSearch(q) {
   try {
@@ -436,14 +445,12 @@ async function yfMulti(tickers) {
 
 // ── Yahoo Finance: NSE top gainers/losers ──────────────
 async function yfMovers() {
-  // NSE India public screener
   try {
     var url = NSE_BASE + "live-analysis-variations?index=gainers";
     var j = await proxyFetch(url);
     var d = j.data || j.NIFTY || [];
     if (d.length) return d.slice(0,10).map(function(s){return {ticker:s.symbol, name:s.symbolDesc||s.symbol, price:"₹"+(s.ltp||s.lastPrice||0).toFixed(2), chg:(s.perChange||0).toFixed(2)+"%", up:(s.perChange||0)>=0};});
   } catch(e) {}
-  // Fallback: Yahoo screener for India
   try {
     var url2 = "https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?formatted=false&lang=en-US&region=IN&scrIds=day_gainers&count=10";
     var j2 = await proxyFetch(url2);
@@ -481,13 +488,23 @@ function calcSR(closes) {
   return {sup:"₹"+sorted[Math.floor(sorted.length*.1)].toFixed(2), res:"₹"+sorted[Math.floor(sorted.length*.9)].toFixed(2)};
 }
 
-// ── FREE AI: Pollinations.ai (no key, unlimited) ────────
+// ── FREE AI: Pollinations.ai (Upgraded to bulletproof POST with JSON Mode) ────────
 async function pollAI(prompt) {
   try {
-    var encoded = encodeURIComponent(prompt);
-    var r = await fetch(POLL_AI + encoded, {method:"GET"});
+    var r = await fetch("https://text.pollinations.ai/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        messages: [{ role: "user", content: prompt }],
+        jsonMode: true
+      })
+    });
+    if (!r.ok) throw new Error("AI engine fetch failed");
     return await r.text();
-  } catch(e) { return ""; }
+  } catch(e) { 
+    console.error("AI Error:", e);
+    return ""; 
+  }
 }
 
 // ── FREE AI: Gemini (if key provided) ──────────────────
@@ -518,12 +535,9 @@ function pj(txt) {
     var end = txt.lastIndexOf('}');
     if (start === -1 || end === -1) return null;
     var cleanStr = txt.substring(start, end + 1);
-    
-    // Clean trailing commas that break JSON.parse
     cleanStr = cleanStr.replace(/,(\s*[\]}])/g, '$1');
     return JSON.parse(cleanStr);
   } catch(e) {
-    console.warn("AI Object parsing failed:", e);
     return null;
   }
 }
@@ -535,11 +549,9 @@ function pja(txt) {
     var end = txt.lastIndexOf(']');
     if (start === -1 || end === -1) return null;
     var cleanStr = txt.substring(start, end + 1);
-    
     cleanStr = cleanStr.replace(/,(\s*[\]}])/g, '$1');
     return JSON.parse(cleanStr);
   } catch(e) {
-    console.warn("AI Array parsing failed:", e);
     return null;
   }
 }
@@ -553,7 +565,7 @@ function rls(arr){if(!Array.isArray(arr))return"";return arr.map(function(r){ret
 function skels(h,n){return Array(n).fill('<div class="skel" style="height:'+h+'px;margin-bottom:8px"></div>').join("");}
 function ldng(msg){return'<div style="text-align:center;padding:40px 20px"><div class="spnr"></div><div style="font-size:13px;color:#64748b">'+msg+'</div><div style="font-size:10px;color:#22c55e;margin-top:6px">🆓 100% Free · No key needed</div></div>';}
 
-// ── THEME ──────────────────────────────────────────────
+ // ── THEME ──────────────────────────────────────────────
 document.getElementById("themeBtn").addEventListener("click",function(){isLight=!isLight;document.body.classList.toggle("light",isLight);this.textContent=isLight?"🌙":"☀️";});
 
 // ── TABS ───────────────────────────────────────────────
@@ -612,7 +624,15 @@ async function loadNews(force){
 }
 function renderNews(arr){
   document.getElementById("newsBody").innerHTML=arr.map(function(n){
-    return'<div class="nc"><div class="nc-head">'+n.headline+'</div><div class="nc-meta"><span class="nc-src">'+(n.source||"Yahoo Finance")+'</span><span class="nc-time">'+n.time+'</span><span class="su">Market</span></div></div>';
+    var h = n.headline.toLowerCase();
+    // Smart keyword detection for instant sentiment matching
+    var badge = '<span class="su">Neutral</span>';
+    if(h.includes("rise") || h.includes("profit") || h.includes("surge") || h.includes("gain") || h.includes("up") || h.includes("buy")) {
+      badge = '<span class="sp">🟢 Bullish</span>';
+    } else if(h.includes("fall") || h.includes("loss") || h.includes("slump") || h.includes("drop") || h.includes("down") || h.includes("crash")) {
+      badge = '<span class="sn">🔴 Bearish</span>';
+    }
+    return'<div class="nc"><div class="nc-head">'+n.headline+'</div><div class="nc-meta"><span class="nc-src">'+(n.source||"Yahoo Finance")+'</span><span class="nc-time">'+n.time+'</span>'+badge+'</div></div>';
   }).join("");
 }
 document.getElementById("btnNews").addEventListener("click",function(){loadNews(true);});
@@ -905,7 +925,6 @@ async function loadGlobal(force){
   if(!force&&CACHE.global&&fresh(CACHE.gTs,TTL.s)){renderGlobal(CACHE.global);return;}
   document.getElementById("gBody").innerHTML=skels(80,3);
   try{
-    // Fetch global indices via Yahoo Finance proxy
     var symbols=["^NSEI","^BSESN","^GSPC","^IXIC","CL=F","GC=F","USDINR=X","^N225","^HSI"];
     var results=await Promise.all(symbols.map(function(s){return yfQuote(s);}));
     var d={nifty:results[0],sensex:results[1],sp500:results[2],nasdaq:results[3],crude:results[4],gold:results[5],usdinr:results[6],nikkei:results[7],hangseng:results[8]};
@@ -931,7 +950,6 @@ async function loadCal(force){
   if(!force&&CACHE.cal&&fresh(CACHE.cTs,TTL.l)){renderCal(CACHE.cal);return;}
   document.getElementById("calBody").innerHTML=skels(56,4);
   try{
-    // NSE corporate actions API (free, no key)
     var url=NSE_BASE+"event-calendar";
     var j=await proxyFetch(url);
     var arr=(j||[]).slice(0,15).map(function(e){
@@ -940,7 +958,6 @@ async function loadCal(force){
     if(!arr.length)throw"fail";
     CACHE.cal=arr;CACHE.cTs=Date.now();renderCal(arr);
   }catch(e){
-    // Fallback: free AI generated
     var aiTxt=await freeAI("List 10 upcoming Indian NSE stock market events this week. Include earnings, IPOs, dividends, board meetings. Return ONLY JSON array: [{date,company,ticker,type,detail}] type=Earnings/IPO/Dividend/Result/BoardMeeting");
     var arr=pja(aiTxt);
     if(arr&&arr.length){CACHE.cal=arr;CACHE.cTs=Date.now();renderCal(arr);}
@@ -967,7 +984,6 @@ async function sendChat(){
   var tid="m"+Date.now();
   msgs.innerHTML+='<div class="cm cmai" id="'+tid+'"><span class="mspn"></span> Thinking…</div>';
   msgs.scrollTop=msgs.scrollHeight;
-  // Fetch live price for any ticker in the question
   var tm=q.toUpperCase().match(/\b([A-Z]{2,12})\b/g)||[];
   var ctx="";
   for(var i=0;i<Math.min(tm.length,2);i++){var p=await yfQuote(tm[i]);if(p)ctx+="Live "+tm[i]+": "+p.price+" ("+p.changePct+"). ";}
@@ -977,7 +993,20 @@ async function sendChat(){
 }
 
 // ── INIT ──────────────────────────────────────────────────
+// ── INIT & STREAMING LIVE UPDATES ─────────────────────────────────
+// Initial data load on open
 Promise.all([loadNews(), loadTrend(), loadIdx()]);
+
+// True Live Streaming: Silently refetch ticks every 30 seconds automatically
+setInterval(function() {
+  console.log("Streaming live update tick...");
+  loadIdx(); // Auto-stream NIFTY & SENSEX numbers
+  
+  // If user is currently looking at the home screen, refresh movers seamlessly
+  if(document.getElementById("pg-home").classList.contains("show")) {
+    loadTrend(true); 
+  }
+}, 30000);
 </script>
 </body>
 </html>
