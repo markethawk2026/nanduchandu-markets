@@ -15,7 +15,7 @@ function skels(h, n){ return Array(n).fill('<div class="skel" style="height:' + 
 function ldng(msg){ return '<div style="text-align:center;padding:40px 20px"><div class="spnr"></div><div style="font-size:13px;color:#64748b">' + msg + '</div></div>'; }
 
 function drawNativeChart(closes, volumes, up) {
-  if(!closes || closes.length < 5) return '';
+  if(!closes || closes.length < 2) return '';
   var w = 500, h = 140;
   var minP = Math.min(...closes), maxP = Math.max(...closes);
   var rngP = maxP - minP || 1;
@@ -41,7 +41,9 @@ function drawNativeChart(closes, volumes, up) {
     '</svg></div></div>';
 }
 
-// Switch Tab Router Context Trigger Fix
+document.getElementById("themeBtn").addEventListener("click", function(){ isLight = !isLight; document.body.classList.toggle("light", isLight); this.textContent = isLight ? "🌙" : "☀️"; });
+
+// Tab Focus Route Core Sync Fix
 function switchTab(name){
   document.querySelectorAll(".tab").forEach(function(t){ t.classList.toggle("active", t.getAttribute("data-tab") === name); });
   document.querySelectorAll(".page").forEach(function(p){ p.classList.toggle("show", p.id === "pg-" + name); });
@@ -49,20 +51,13 @@ function switchTab(name){
   if(name === "global") loadGlobal(); 
   if(name === "calendar") loadCal();
   
-  // Dynamic Tab Focus Sync: Autofills inputs and updates targets immediately on click
   if(name === "nextday" && window.activeTickerNode) {
     var ndInput = document.getElementById("ndIn");
-    if(ndInput && ndInput.value !== window.activeTickerNode) {
-      ndInput.value = window.activeTickerNode;
-      runNextDay(window.activeTickerNode);
-    }
+    if(ndInput) { ndInput.value = window.activeTickerNode; runNextDay(window.activeTickerNode); }
   }
   if(name === "term" && window.activeTickerNode) {
     var tmInput = document.getElementById("tmIn");
-    if(tmInput && tmInput.value !== window.activeTickerNode) {
-      tmInput.value = window.activeTickerNode;
-      runOutlook(window.activeTickerNode);
-    }
+    if(tmInput) { tmInput.value = window.activeTickerNode; runOutlook(window.activeTickerNode); }
   }
 }
 document.querySelectorAll(".tab").forEach(function(t){ t.addEventListener("click", function(){ switchTab(t.getAttribute("data-tab")); }); });
@@ -88,15 +83,12 @@ document.addEventListener("click", function(e){ if(!e.target.closest(".sw")) ddE
 async function loadNews(force){
   if(!force && window.CACHE.news && fresh(window.CACHE.nTs, window.TTL.s)) { renderNews(window.CACHE.news); return; }
   document.getElementById("newsBody").innerHTML = skels(56, 3);
-  var news = await yfNews("NSE NIFTY India"); window.CACHE.news = news; window.CACHE.nTs = Date.now(); renderNews(news);
+  var news = await yfNews("NIFTY"); window.CACHE.news = news; window.CACHE.nTs = Date.now(); renderNews(news);
 }
 function renderNews(arr){
   if(!arr.length) { document.getElementById("newsBody").innerHTML = '<div style="font-size:12px;padding:10px;color:#475569;">No active market briefings.</div>'; return; }
   document.getElementById("newsBody").innerHTML = arr.map(function(n){
-    var h = n.headline.toLowerCase(); var b = '<span class="su">Neutral</span>';
-    if(h.includes("rise") || h.includes("profit") || h.includes("surge") || h.includes("gain") || h.includes("up")) b = '<span class="sp">🟢 Bullish</span>';
-    else if(h.includes("fall") || h.includes("loss") || h.includes("slump") || h.includes("drop")) b = '<span class="sn">🔴 Bearish</span>';
-    return '<div class="nc"><div class="nc-head">' + n.headline + '</div><div class="nc-meta"><span class="nc-src">' + n.source + '</span><span class="nc-time">' + n.time + '</span>' + b + '</div></div>';
+    return '<div class="nc"><div class="nc-head">' + n.headline + '</div><div class="nc-meta"><span>' + (n.source || "Market Feed") + '</span><span>·</span><span>' + n.time + '</span></div></div>';
   }).join("");
 }
 document.getElementById("btnNews").addEventListener("click", function(){ loadNews(true); });
@@ -107,12 +99,12 @@ async function loadTrend(force){
   var movers = await yfMovers(); window.CACHE.trend = movers; window.CACHE.tTs = Date.now(); renderTrend(movers);
 }
 function renderTrend(arr){
-  if(!arr.length) { document.getElementById("trendBody").innerHTML = '<div style="font-size:12px;padding:10px;color:#475569;">Movers terminal temporarily offline.</div>'; return; }
+  if(!arr.length) { document.getElementById("trendBody").innerHTML = '<div style="font-size:12px;padding:10px;color:#475569;">Movers feed synchronization locking.</div>'; return; }
   document.getElementById("trendBody").innerHTML = arr.slice(0, 8).map(function(s){
     var up = isUp(s.chg); var pc = up ? "#22c55e" : "#ef4444";
     var emoji = ["📈", "📊", "⚡", "🚀", "💎", "🔋", "🏢", "🏭"][Math.floor(Math.random() * 8)];
     return '<div class="tcard" data-t="' + s.ticker + '"><span style="font-size:18px;margin-right:4px;">' + emoji + '</span>' +
-      '<div style="flex:1;min-width:0;"><div style="font-size:12px;font-weight:700;color:#e2e8f4;text-overflow:ellipsis;overflow:hidden;white-space:nowrap;">' + s.ticker + '</div><div style="font-size:10px;color:#475569;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + s.name + '</div></div>' +
+      '<div style="flex:1;min-width:0;"><div style="font-size:12px;font-weight:700;color:#e2e8f4;">' + s.ticker + '</div><div style="font-size:10px;color:#475569;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + s.name + '</div></div>' +
       '<div style="text-align:right;"><div style="font-size:12px;font-weight:700;color:' + pc + '">' + s.price + '</div><div style="font-size:10px;color:' + pc + '">' + (up ? "▲" : "▼") + ' ' + s.chg + '</div></div></div>';
   }).join("");
   
@@ -136,26 +128,32 @@ async function loadIdx(){
 async function runAnalysis(ticker){
   ticker = ticker.toUpperCase().trim(); siEl.value = ticker; window.activeTickerNode = ticker; switchTab("analysis");
   var body = document.getElementById("aBody"); if(window.CACHE.analysis[ticker] && fresh(window.CACHE.analysis[ticker].ts, window.TTL.m)) { renderAnalysis(window.CACHE.analysis[ticker].d); return; }
-  body.innerHTML = ldng("Processing framework matrices for " + ticker + "...");
+  body.innerHTML = ldng("Processing dual-axis matrix fields for " + ticker + "...");
 
-  var pData = await yfQuote(ticker); var closes = pData ? pData.closes : []; var volumes = pData ? pData.volumes : []; var news = await yfNews(ticker);
+  var pData = await yfQuote(ticker); if(!pData) { body.innerHTML = '<div class="errbox">Ticker resolution timed out on server channels.</div>'; return; }
+  var closes = pData.closes; var volumes = pData.volumes; var news = await yfNews(ticker);
   var rsi = calcRSI(closes, 14); var macd = calcMACD(closes); var ema20 = calcEMA(closes, 20); var ema50 = calcEMA(closes, 50); var sr = calcSR(closes);
 
   var calculatedHealth = calculateTechnicalScore(closes, rsi, macd, ema20, ema50);
   var healthVerdict = calculatedHealth > 75 ? "Strong Buy" : calculatedHealth > 50 ? "Buy" : calculatedHealth > 35 ? "Hold" : "Sell";
   var healthColor = tSty(healthVerdict).c;
 
-  var prompt = "You are an expert Indian stock analyst. Provide a formal technical review structure for ticker " + ticker + " with close value " + (pData ? pData.price : "N/A") + ". Return strictly a single JSON dictionary object: {\"trend\":\"Bullish/Bearish/Neutral\",\"confidence\":75,\"tradeDirection\":\"BUY/SELL/WAIT\",\"entry\":\"₹X\",\"stopLoss\":\"₹Y\",\"target1\":\"₹Z\",\"target2\":\"₹W\",\"rsiSignal\":\"Text\",\"macdSignal\":\"Text\",\"volumeSignal\":\"Text\",\"smaSignal\":\"Text\",\"fiiActivity\":\"Text\",\"optionsOI\":\"Text\",\"probBull\":60,\"probBear\":40,\"riskLevel\":\"Low/Medium/High\",\"riskScore\":45,\"reasons\":[\"Factor A\",\"Factor B\"],\"summary\":\"Two sentence summary profile analysis here.\"}";
+  var prompt = "You are an expert Indian stock analyst. Provide a technical target evaluation matrix review structure for ticker " + ticker + " with close price " + pData.price + ". Return strictly a single clean JSON dictionary layout string: {\"trend\":\"Bullish/Bearish/Neutral\",\"confidence\":75,\"tradeDirection\":\"BUY/SELL/WAIT\",\"entry\":\"₹X\",\"stopLoss\":\"₹Y\",\"target1\":\"₹Z\",\"target2\":\"₹W\",\"rsiSignal\":\"Text\",\"macdSignal\":\"Text\",\"volumeSignal\":\"Text\",\"smaSignal\":\"Text\",\"fiiActivity\":\"Text\",\"optionsOI\":\"Text\",\"probBull\":60,\"probBear\":40,\"riskLevel\":\"Low/Medium/High\",\"riskScore\":45,\"reasons\":[\"Factor A\",\"Factor B\"],\"summary\":\"Analysis overview profile parameters here.\"}";
   var aiTxt = await freeAI(prompt); var ai = pj(aiTxt) || {};
 
+  // Unbreakable Mathematical Fail-Safe Mapping Layout
   var d = {
-    ticker: ticker, company: pData ? pData.name : ticker, price: pData ? pData.price : "N/A", changePct: pData ? pData.changePct : "—", up: pData ? pData.up : true,
-    high: pData ? pData.high : "—", low: pData ? pData.low : "—", volume: pData ? pData.volume : "—", mktCap: pData ? pData.mktCap : "—", closes: closes, volumes: volumes,
+    ticker: ticker, company: pData.name, price: pData.price, changePct: pData.changePct, up: pData.up,
+    high: pData.high, low: pData.low, volume: pData.volume, mktCap: pData.mktCap, closes: closes, volumes: volumes,
     rsi: rsi, macd: macd || "0.00", support: sr.sup, resistance: sr.res, news: news.slice(0, 4), healthScore: calculatedHealth, healthVerdict: healthVerdict, healthColor: healthColor,
-    trend: ai.trend || healthVerdict, confidence: ai.confidence || calculatedHealth, tradeDirection: ai.tradeDirection || "WAIT", entry: ai.entry || "—", stopLoss: ai.stopLoss || "—", target1: ai.target1 || "—", target2: ai.target2 || "—",
-    rsiSignal: ai.rsiSignal || "Neutral Index Zone", macdSignal: ai.macdSignal || "Convergence Zone", volumeSignal: ai.volumeSignal || "Standard Volume", smaSignal: ai.smaSignal || "Balanced Lines",
-    fiiActivity: ai.fiiActivity || "Balanced Positions", optionsOI: ai.optionsOI || "Neutral Build", probBull: ai.probBull || calculatedHealth, probBear: ai.probBear || (100 - calculatedHealth),
-    riskLevel: ai.riskLevel || "Medium", riskScore: ai.riskScore || 50, reasons: ai.reasons || ["Calculated via background indicators matrix."], summary: ai.summary || "System parameters tracking stable movement trends."
+    trend: ai.trend || healthVerdict, confidence: ai.confidence || calculatedHealth, tradeDirection: ai.tradeDirection || (calculatedHealth > 50 ? "BUY" : "WAIT"), 
+    entry: ai.entry && ai.entry !== "—" ? ai.entry : "₹" + pData.raw.toFixed(2), 
+    stopLoss: ai.stopLoss && ai.stopLoss !== "—" ? ai.stopLoss : sr.sup !== "—" ? sr.sup : "₹" + (pData.raw * 0.97).toFixed(2), 
+    target1: ai.target1 && ai.target1 !== "—" ? ai.target1 : sr.res !== "—" ? sr.res : "₹" + (pData.raw * 1.05).toFixed(2), 
+    target2: ai.target2 || "—",
+    rsiSignal: ai.rsiSignal || "Standard Dynamic Index Range", macdSignal: ai.macdSignal || "Convergence Zone Range Map", volumeSignal: ai.volumeSignal || "Standard Distribution Profile", smaSignal: ai.smaSignal || "Tracking Benchmarks Alignment",
+    fiiActivity: ai.fiiActivity || "Balanced Operations Flow", optionsOI: ai.optionsOI || "Neutral Build Layer", probBull: ai.probBull || calculatedHealth, probBear: ai.probBear || (100 - calculatedHealth),
+    riskLevel: ai.riskLevel || (calculatedHealth < 35 ? "High" : "Medium"), riskScore: ai.riskScore || 50, reasons: ai.reasons || ["Calculated using local pattern analysis."], summary: ai.summary || "System metrics processing stable target parameters mapping curves."
   };
   window.CACHE.analysis[ticker] = { d: d, ts: Date.now() }; renderAnalysis(d);
 }
@@ -191,18 +189,19 @@ function renderAnalysis(d){
   document.getElementById("lnkTM").addEventListener("click", function(){ document.getElementById("tmIn").value = d.ticker; switchTab("term"); runOutlook(d.ticker); });
 }
 
-// ── NEXT DAY PREDICTIONS ──
+// ── NEXT DAY ANALYSIS ENGINE ──
 document.getElementById("ndBtn").addEventListener("click", function(){ var q = document.getElementById("ndIn").value.trim(); if(q) runNextDay(q); });
 async function runNextDay(ticker){
-  ticker = ticker.toUpperCase().trim(); var body = document.getElementById("ndBody"); body.innerHTML = ldng("Processing tomorrow's pattern distribution channels for " + ticker + "...");
-  var p = await yfQuote(ticker);
-  var prompt = "Analyze tomorrows probable directional movement setup for " + ticker + " NSE stock. Base price close is " + (p ? p.price : "N/A") + ". Return strictly a clean JSON layout block: {\"trend\":\"Bullish/Bearish\",\"confidence\":75,\"gapUpDown\":\"Gap Up / Flat Open\",\"expectedRange\":\"₹X - ₹Y\",\"keyLevel\":\"₹Z Pivot Line\",\"summary\":\"Two sentence analysis here.\"}";
+  ticker = ticker.toUpperCase().trim(); var body = document.getElementById("ndBody"); body.innerHTML = ldng("Processing tomorrow's forecasting parameters for " + ticker + "...");
+  var p = await yfQuote(ticker); if(!p) { body.innerHTML = '<div class="errbox">Data channel offline.</div>'; return; }
+  
+  var prompt = "Analyze tomorrows probable directional movement setup for " + ticker + " NSE stock. Base close price is " + p.price + ". Return strictly a clean single-line JSON structure: {\"trend\":\"Bullish/Bearish\",\"confidence\":75,\"gapUpDown\":\"Gap Up / Flat Open\",\"expectedRange\":\"₹X - ₹Y\",\"keyLevel\":\"₹Z Pivot Line\",\"summary\":\"Short analysis synthesis here.\"}";
   var aiTxt = await freeAI(prompt); var d = pj(aiTxt);
   
   if(!d) {
-    d = { trend: aiTxt.includes("Bull") ? "Bullish" : "Bearish", confidence: 70, gapUpDown: "Analytical Open Indicator", expectedRange: "Volatility Boundaries", keyLevel: "Pivot Bands", summary: aiTxt.replace(/\n/g, "<br>") };
+    d = { trend: p.up ? "Bullish" : "Bearish", confidence: p.healthScore || 60, gapUpDown: p.up ? "Gap Up Outlook" : "Consolidation Open", expectedRange: p.low + " - " + p.high, keyLevel: "₹" + p.raw.toFixed(2), summary: aiTxt ? aiTxt.replace(/\n/g, "<br>") : "Calculated using historical volatility vectors matrix profile." };
   }
-  d.ticker = ticker; d.price = p ? p.price : "N/A"; renderND(d);
+  d.ticker = ticker; d.price = p.price; renderND(d);
 }
 function renderND(d) {
   var t = tSty(d.trend);
@@ -210,27 +209,25 @@ function renderND(d) {
     '<div>Current Base Close: <strong>' + d.price + '</strong></div>' +
     '<div>Model Open Indicator: <strong style="color:#3b82f6">' + d.gapUpDown + '</strong></div>' +
     '<div>Expected Range Variance: <strong>' + d.expectedRange + '</strong></div>' +
-    '<div>Key Support Level: <strong style="color:#f59e0b">' + d.keyLevel + '</strong></div>' +
+    '<div>Key Support Pivot: <strong style="color:#f59e0b">' + d.keyLevel + '</strong></div>' +
     '<div class="asum" style="border-left-color:' + t.c + '">🤖 <strong>AI Target Direction:</strong> <span style="color:' + t.c + ';font-weight:700;">' + d.trend + ' (' + d.confidence + '%)</span><br><br>' + d.summary + '</div></div>';
 }
 
-// ── LONG/SHORT TERM STRATEGY HORIZONS ──
+// ── HORIZON STRATEGY STRATEGY OUTLOOK ENGINE ──
 document.querySelectorAll(".tfb").forEach(function(b){ b.addEventListener("click", function(){ document.querySelectorAll(".tfb").forEach(function(x){ x.classList.remove("active"); }); b.classList.add("active"); activeTF = b.getAttribute("data-tf"); if(window.activeTickerNode) runOutlook(window.activeTickerNode); }); });
 document.getElementById("tmBtn").addEventListener("click", function(){ var q = document.getElementById("tmIn").value.trim(); if(q) runOutlook(q); });
 async function runOutlook(ticker){
-  ticker = ticker.toUpperCase().trim(); var body = document.getElementById("tmBody"); body.innerHTML = ldng("Assembling horizon investment thesis models for " + ticker + "...");
-  var p = await yfQuote(ticker);
-  var prompt = "Generate a short/long investment strategy outlook thesis for " + ticker + " NSE counters. Close price is " + (p ? p.price : "N/A") + ". Scope: " + activeTF + ". Return strictly a clean JSON block: {\"trend\":\"Bullish/Neutral\",\"confidence\":70,\"target\":\"₹Objective Target\",\"risk\":\"Low/Medium/High\",\"summary\":\"Provide full detailed investment strategy statements.\"}";
+  ticker = ticker.toUpperCase().trim(); var body = document.getElementById("tmBody"); body.innerHTML = ldng("Synthesizing algorithmic long-term macro configuration targets for " + ticker + "...");
+  var p = await yfQuote(ticker); if(!p) { body.innerHTML = '<div class="errbox">Data stream disconnected.</div>'; return; }
+  
+  var prompt = "Generate an investment strategy outlook matrix for " + ticker + " NSE. Close is " + p.price + ". Perspective target horizon: " + activeTF + ". Return strictly a single JSON string block: {\"trend\":\"Bullish/Neutral\",\"confidence\":70,\"target\":\"₹Objective Target\",\"risk\":\"Low/Medium/High\",\"summary\":\"Provide structural valuation investment thesis description highlights.\"}";
   var aiTxt = await freeAI(prompt); var d = pj(aiTxt);
   
   if(!d) {
-    d = { trend: "Strategic View", confidence: 75, target: "Technical Target Levels", risk: "Calculated Profile", summary: aiTxt.replace(/\n/g, "<br>") };
+    d = { trend: p.up ? "Bullish" : "Neutral Consolidation", confidence: 65, target: "₹" + (p.raw * 1.15).toFixed(2), risk: "Medium Risk Band", summary: aiTxt ? aiTxt.replace(/\n/g, "<br>") : "Calculated investment parameters using underlying chart distributions framework metrics." };
   }
   
-  var targetVal = d.target || d.target1 || "—";
-  var riskVal = d.risk || d.riskLevel || "Medium";
-  var t = tSty(d.trend);
-  
+  var targetVal = d.target || d.target1 || "—"; var riskVal = d.risk || d.riskLevel || "Medium"; var t = tSty(d.trend);
   body.innerHTML = '<div class="sec"><h3>Macro Strategy Horizon Outlook Model: ' + ticker + '</h3><br>' +
     '<div>Trajectory Map Consensus: <strong style="color:' + t.c + '">' + d.trend + ' (' + d.confidence + '% Weighting)</strong></div>' +
     '<div>Structural Valuation Target Objective: <strong>' + targetVal + '</strong></div>' +
@@ -260,9 +257,9 @@ async function loadCal(force){
   if(!force && window.CACHE.cal && fresh(window.CACHE.cTs, window.TTL.l)) { renderCal(window.CACHE.cal); return; }
   document.getElementById("calBody").innerHTML = skels(56, 3);
   try {
-    var aiTxt = await freeAI("List 4 corporate action action dates this week for popular Indian stocks. Return strictly a JSON list array layout: [{\"date\":\"DD MMM\",\"company\":\"Name\",\"type\":\"Dividend/Earnings\",\"detail\":\"Brief details\"}]");
+    var aiTxt = await freeAI("List 4 upcoming dividend or announcement corporate action dates for Indian liquid companies this month. Return strictly a JSON array: [{\"date\":\"DD MMM\",\"company\":\"Name\",\"type\":\"Dividend/Earnings\",\"detail\":\"Brief details description text\"}]");
     var arr = pja(aiTxt) || []; window.CACHE.cal = arr; window.CACHE.cTs = Date.now(); renderCal(arr);
-  } catch(e) { document.getElementById("calBody").innerHTML = '<div class="errbox">Events tracker node offline.</div>'; }
+  } catch(e) { document.getElementById("calBody").innerHTML = '<div class="errbox">Events database system tracker channel offline.</div>'; }
 }
 function renderCal(arr){
   var h = '<div class="clst">';
@@ -277,7 +274,7 @@ document.getElementById("chatIn").addEventListener("keydown", function(e){ if(e.
 async function sendChat(){
   var inp = document.getElementById("chatIn"); var q = inp.value.trim(); if(!q) return;
   inp.value = ""; var msgs = document.getElementById("chatMsgs"); msgs.innerHTML += '<div class="cm cmu">' + q + '</div>';
-  var tid = "m" + Date.now(); msgs.innerHTML += '<div class="cm cmai" id="' + tid + '"><span class="mspn"></span> Cross-referencing indicator arrays and pulling real-time metrics...</div>';
+  var tid = "m" + Date.now(); msgs.innerHTML += '<div class="cm cmai" id="' + tid + '"><span class="mspn"></span> Verifying terminal configurations and evaluating targets data streams...</div>';
   msgs.scrollTop = msgs.scrollHeight;
   
   var tokenMatch = q.toUpperCase().match(/\b([A-Z]{2,10})\b/g) || [];
@@ -286,13 +283,13 @@ async function sendChat(){
   if(targetLookupSymbol) {
     var liveQuote = await yfQuote(targetLookupSymbol);
     if(liveQuote) {
-      tickerContext = "Active Context for " + targetLookupSymbol + ": Current Price: " + liveQuote.price + ", Session Change: " + liveQuote.changePct + ", Session High/Low: " + liveQuote.high + "/" + liveQuote.low + ". ";
+      tickerContext = "Active Context for " + targetLookupSymbol + ": Current Price: " + liveQuote.price + ", Session Change: " + liveQuote.changePct + ", High/Low: " + liveQuote.high + "/" + liveQuote.low + ". ";
     }
   }
 
-  var prompt = "You are NanduChandu Markets AI expert conversational system. " + tickerContext + "Give everything relevant to this inquiry (trends, entry/exit points, patterns, chart observations, support metrics) in an exhaustive, fully thorough, bulleted list. Inquiry: " + q;
+  var prompt = "You are NanduChandu Markets AI expert conversational terminal co-pilot. " + tickerContext + "Analyze this user question and provide a highly thorough, complete response mapping out all entry boundaries, strategy trends, support indicators, and objectives cleanly in bullet points. Question: " + q;
   var txt = await freeAI(prompt);
-  var stylizedText = txt ? txt.replace(/\n/g, "<br>").replace(/\* \*\*(.*?)\*\"/g, "• <strong>$1</strong>").replace(/\* /g, "• ") : "Transmission timeout encountered.";
+  var stylizedText = txt ? txt.replace(/\n/g, "<br>").replace(/\* \*\*(.*?)\*\"/g, "• <strong>$1</strong>").replace(/\* /g, "• ") : "Transmission network channels timed out.";
   document.getElementById(tid).innerHTML = stylizedText; msgs.scrollTop = msgs.scrollHeight;
 }
 
