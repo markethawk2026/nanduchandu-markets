@@ -50,14 +50,8 @@
 </div>
 
 <div class="page show" id="pg-home">
-  <div style="margin-bottom: 14px; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 2px 4px;">
-    <span style="font-size: 11px; color: #64748b; align-self: center; margin-right: 4px; font-weight: 600; white-space: nowrap;">⚡ Quick View:</span>
-    <span class="csg" onclick="runAnalysis('RELIANCE')" style="margin:0; padding: 5px 12px;">RELIANCE</span>
-    <span class="csg" onclick="runAnalysis('TCS')" style="margin:0; padding: 5px 12px;">TCS</span>
-    <span class="csg" onclick="runAnalysis('INFY')" style="margin:0; padding: 5px 12px;">INFY</span>
-    <span class="csg" onclick="runAnalysis('HFCL')" style="margin:0; padding: 5px 12px;">HFCL</span>
-    <span class="csg" onclick="runAnalysis('TATAMOTORS')" style="margin:0; padding: 5px 12px;">TATAMOTORS</span>
-    <span class="csg" onclick="runAnalysis('SBIN')" style="margin:0; padding: 5px 12px;">SBIN</span>
+  <div style="margin-bottom: 14px; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 2px 4px;" id="quickViewStrip">
+    <span style="font-size: 11px; color: #64748b; align-self: center; margin-right: 4px; font-weight: 600; white-space: nowrap;">⚡ Quick View: Loading...</span>
   </div>
 
   <div class="sec">
@@ -145,12 +139,8 @@
 <div class="page" id="pg-chat">
   <div class="sec">
     <div class="stitle" style="margin-bottom:10px">🤖 AI Market Assistant <span class="badge b-free">100% Free</span></div>
-    <div style="margin-bottom:10px">
-      <span class="csg" onclick="document.getElementById('chatIn').value=this.textContent;sendChat();">Is RELIANCE a good buy?</span>
-      <span class="csg" onclick="document.getElementById('chatIn').value=this.textContent;sendChat();">Best IT stocks NSE?</span>
-      <span class="csg" onclick="document.getElementById('chatIn').value=this.textContent;sendChat();">Explain RSI simply</span>
-      <span class="csg" onclick="document.getElementById('chatIn').value=this.textContent;sendChat();">NIFTY outlook this week</span>
-    </div>
+    <div style="margin-bottom:10px" id="chatSuggestions">
+      </div>
     <div class="cmsgs" id="chatMsgs">
       <div class="cm cmai">👋 Hi! I'm NanduChandu AI — 100% free, no API key, unlimited. Ask anything about NSE/BSE!</div>
     </div>
