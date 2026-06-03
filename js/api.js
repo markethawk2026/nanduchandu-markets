@@ -40,7 +40,7 @@ async function proxyFetch(url) {
   }
   throw lastError || new Error("All proxy pathways failed.");
 }
-  
+
 async function yfQuote(ticker) {
   ticker = ticker.toUpperCase().trim();
   if (ticker === "NIFTY50" || ticker === "NIFTY 50" || ticker === "NIFTY") ticker = "^NSEI";
@@ -64,6 +64,12 @@ async function yfQuote(ticker) {
     var m = cResult.meta;
     var price = m.regularMarketPrice;
     
+    // FIX: Use official exchange baseline metrics directly to avoid manual array drift errors
+    var prevClose = m.regularMarketPreviousClose || m.previousClose || m.chartPreviousClose || price;
+    
+    var chg = price - prevClose;
+    var chgPct = (chg / prevClose) * 100;
+    
     var rawCloses = cResult.indicators.quote[0].close || [];
     var rawVolumes = cResult.indicators.quote[0].volume || [];
     var cleanCloses = rawCloses.filter(p => p !== null && p !== undefined);
@@ -71,20 +77,11 @@ async function yfQuote(ticker) {
 
     if(!cleanCloses.length) cleanCloses = [price, price];
 
-    // CRITICAL INDEX FIX: Override the 1-month-old baseline close with true session history
-    var prevClose = m.previousClose || m.chartPreviousClose || price;
-    if (sym.startsWith("^") && cleanCloses.length >= 2) {
-      prevClose = cleanCloses[cleanCloses.length - 2];
-    }
-
-    var chg = price - prevClose;
-    var chgPct = (chg / prevClose) * 100;
-
     var vFmt = typeof fmtVol === "function" ? fmtVol : String;
     var cFmt = typeof fmtCap === "function" ? fmtCap : String;
 
     var d = {
-      price:    "₹" + price.toFixed(2),
+      price:    "₹" + price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
       raw:      price,
       change:   (chg >= 0 ? "+" : "") + chg.toFixed(2),
       changePct:(chg >= 0 ? "+" : "") + chgPct.toFixed(2) + "%",
