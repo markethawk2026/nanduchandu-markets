@@ -11,7 +11,7 @@ var YF_NEWS   = "https://query2.finance.yahoo.com/v1/finance/search?q=";
 var POLL_AI   = "https://text.pollinations.ai/";
 
 var PROXIES = [
-  "https://corsproxy.io/?",
+  "https://corsproxy.io/?url=",
   "https://api.allorigins.win/raw?url=",
   "https://thingproxy.freeboard.io/fetch/"
 ];
@@ -23,12 +23,8 @@ async function proxyFetch(url) {
   let lastError = null;
   for (var i = 0; i < PROXIES.length; i++) {
     try {
-      var currentProxy = PROXIES[i];
-      // FIX: Apply encodeURIComponent ONLY to AllOrigins proxy pathway
-      var targetUrl = currentProxy.includes("allorigins") 
-        ? currentProxy + encodeURIComponent(url) 
-        : currentProxy + url;
-
+      // FIX: Using full URL encoding prevents proxy wrappers from clipping trailing arguments like &range=1mo
+      var targetUrl = PROXIES[i] + encodeURIComponent(url);
       var r = await fetch(targetUrl);
       if (r.ok) {
         var text = await r.text();
@@ -40,7 +36,7 @@ async function proxyFetch(url) {
   }
   throw lastError || new Error("All proxy pathways failed.");
 }
-
+  
 async function yfQuote(ticker) {
   ticker = ticker.toUpperCase().trim();
   if (ticker === "NIFTY50" || ticker === "NIFTY 50" || ticker === "NIFTY") ticker = "^NSEI";
@@ -64,18 +60,25 @@ async function yfQuote(ticker) {
     var m = cResult.meta;
     var price = m.regularMarketPrice;
     
-    // FIX: Use official exchange baseline metrics directly to avoid manual array drift errors
-    var prevClose = m.regularMarketPreviousClose || m.previousClose || m.chartPreviousClose || price;
-    
-    var chg = price - prevClose;
-    var chgPct = (chg / prevClose) * 100;
-    
     var rawCloses = cResult.indicators.quote[0].close || [];
     var rawVolumes = cResult.indicators.quote[0].volume || [];
     var cleanCloses = rawCloses.filter(p => p !== null && p !== undefined);
     var cleanVolumes = rawVolumes.filter((_, idx) => rawCloses[idx] !== null);
 
     if(!cleanCloses.length) cleanCloses = [price, price];
+
+    // FIX: Compare historical arrays against live feed price to capture the real yesterday daily close
+    var prevClose = m.previousClose || m.chartPreviousClose || price;
+    if (cleanCloses.length >= 2) {
+      if (Math.abs(cleanCloses[cleanCloses.length - 1] - price) < 0.05) {
+        prevClose = cleanCloses[cleanCloses.length - 2];
+      } else {
+        prevClose = cleanCloses[cleanCloses.length - 1];
+      }
+    }
+
+    var chg = price - prevClose;
+    var chgPct = (chg / prevClose) * 100;
 
     var vFmt = typeof fmtVol === "function" ? fmtVol : String;
     var cFmt = typeof fmtCap === "function" ? fmtCap : String;
@@ -128,7 +131,6 @@ async function yfNews(q) {
     if (news.length > 0) return news;
   } catch(e) {}
   
-  // ⚡ DYNAMIC CONTEXT FIX: Read the actual price state from your app's live cache
   var cachedData = window.CACHE.prices[cleanQ] ? window.CACHE.prices[cleanQ].d : null;
   var marketContext = "undergoing standard structural consolidation loops";
   
@@ -139,14 +141,12 @@ async function yfNews(q) {
   }
 
   try {
-    // Inject the real-time direction right into the AI prompt parameters
     var aiPrompt = "Generate 3 highly realistic financial market news headline briefs for " + q + " reflecting its actual real-time state of " + marketContext + ". Return strictly a clean JSON array list format with no markdown formatting tags: [{\"headline\":\"Text Headline matching real-time trend direction perfectly\",\"source\":\"NSE Feed\",\"time\":\"12m ago\"}]";
     var aiTxt = await freeAI(aiPrompt);
     var parsed = pja(aiTxt);
     if (parsed && parsed.length) return parsed;
   } catch(err) {}
 
-  // Fallback directional structural backups if the AI endpoint timeouts entirely
   var isUp = cachedData ? cachedData.up : true;
   if (isUp) {
     return [
@@ -163,7 +163,6 @@ async function yfNews(q) {
 
 async function yfMovers() {
   try {
-    // 1. Attempt to fetch trending Indian tickers via standard endpoint
     var url = "https://query1.finance.yahoo.com/v1/finance/trending/IN";
     var j = await proxyFetch(url).catch(() => null);
     var trendingQuotes = (j && j.finance && j.finance.result && j.finance.result[0] && j.finance.result[0].quotes) || [];
@@ -174,31 +173,22 @@ async function yfMovers() {
       return sym && !sym.startsWith("^") && !sym.includes("=") && !sym.includes("-") && sym.length <= 10;
     });
 
-    // 2. Primary Fallback: Extract live tickers using the AI array engine
     if (!dynamicPool || !dynamicPool.length) {
       try {
-        var aiStocks = await freeAI("Provide a JSON array of 10 high-volume active large-cap NSE India stock tickers. Return strictly a valid JSON array of strings like [\"TICKER1\",\"TICKER2\"]. No markdown formatting.");
+        var aiStocks = await freeAI("Provide a JSON array of 10 high-volume active large-cap NSE India stock tickers. Return strictly a valid JSON array of strings like [\"SBIN\",\"INFY\"]. No markdown formatting.");
         dynamicPool = pja(aiStocks) || [];
       } catch (aiErr) {}
     }
 
-    // 3. 100% DYNAMIC INSURANCE LAYER (Zero Hardcoding)
-    // If endpoints choke, harvest tickers the user has already searched for or cached this session
     if (!dynamicPool || !dynamicPool.length) {
-      dynamicPool = Object.keys(window.CACHE.prices).filter(function(key) {
-        return !key.startsWith("^");
-      });
+      dynamicPool = Object.keys(window.CACHE.prices).filter(function(key) { return !key.startsWith("^"); });
     }
     
-    // 4. Secondary Dynamic String Filter (Ultimate Safeguard)
     if (!dynamicPool || !dynamicPool.length) {
-      var backupAi = await freeAI("List 6 completely random high-volume NSE stock symbols separated only by commas, no extra text.");
-      if (backupAi) {
-        dynamicPool = backupAi.split(",").map(function(s) { return s.trim().toUpperCase(); });
-      }
+      var backupAi = await freeAI("List 6 random high-volume NSE stock symbols separated only by commas, no extra text.");
+      if (backupAi) { dynamicPool = backupAi.split(",").map(function(s) { return s.trim().toUpperCase(); }); }
     }
 
-    // 5. Parallelized metric validation execution loop
     var promises = dynamicPool.slice(0, 10).map(async function(sym) {
       try {
         if (!sym || typeof sym !== 'string') return null;
@@ -223,8 +213,6 @@ async function yfMovers() {
 
     var results = await Promise.all(promises);
     var formatted = results.filter(r => r !== null);
-    
-    // Dynamic Sorting: Shows the most explosive absolute intraday price waves first
     return formatted.sort((a, b) => b.rawChg - a.rawChg).slice(0, 6);
   } catch(e) {
     console.error("Movers synchronization failure:", e);
