@@ -90,11 +90,54 @@ function renderNews(arr){
 }
 document.getElementById("btnNews").addEventListener("click", function(){ loadNews(true); });
 
-async function loadTrend(force){
-  if(!force && window.CACHE.trend && fresh(window.CACHE.tTs, window.TTL.s)) { renderTrend(window.CACHE.trend); return; }
-  document.getElementById("trendBody").innerHTML = skels(58, 4);
-  var movers = await yfMovers(); window.CACHE.trend = movers; window.CACHE.tTs = Date.now(); renderTrend(movers);
+async function loadTrend() {
+  // Target the container housing the locking message text string
+  var container = document.getElementById("moversBody") || document.getElementById("trendBody");
+  if (!container) return;
+
+  try {
+    var data = await yfMovers();
+    if (!data || data.length === 0) {
+      container.innerHTML = '<div style="color:#64748b; padding:16px; text-align:center; font-size:12px;">No active volatility waves identified in this session.</div>';
+      return;
+    }
+
+    // Generate a sleek high-visibility interactive list grid layout inspired by NSE data feeds
+    var html = '<div style="display: flex; flex-direction: column; gap: 8px; width: 100%;">';
+    data.forEach(function(item) {
+      var badgeColor = item.up ? "#00b06a" : "#ff3b30";
+      var badgeBg = item.up ? "rgba(0,176,106,0.1)" : "rgba(255,59,48,0.1)";
+      var cleanTicker = item.ticker.replace(".NS", "").replace(".BO", "");
+
+      html += `
+        <div onclick="window.location.hash='#analysis'; document.getElementById('searchBox').value='${cleanTicker}'; if(typeof doSearch==='function')doSearch('${cleanTicker}');" 
+             style="display: flex; justify-content: space-between; align-items: center; background: #111827; padding: 12px 16px; border-radius: 8px; border: 1px solid #1e293b; cursor: pointer; transition: transform 0.2s; content-visibility: auto;"
+             onmouseover="this.style.transform='translateX(4px)'; this.style.borderColor='#38bdf8';" 
+             onmouseout="this.style.transform='none'; this.style.borderColor='#1e293b';">
+          
+          <div style="display: flex; flex-direction: column; gap: 2px;">
+            <span style="color: #f1f5f9; font-weight: 700; font-size: 14px; letter-spacing: 0.3px;">${cleanTicker}</span>
+            <span style="color: #64748b; font-size: 11px; max-width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.name || 'NSE Equity'}</span>
+          </div>
+
+          <div style="text-align: right; display: flex; align-items: center; gap: 12px;">
+            <span style="color: #f1f5f9; font-weight: 700; font-size: 13.5px;">${item.price}</span>
+            <span style="color: ${badgeColor}; background: ${badgeBg}; border: 1px solid ${badgeColor}; font-size: 11px; font-weight: 800; padding: 4px 8px; border-radius: 4px; min-width: 65px; text-align: center;">
+              ${item.changePct || item.chg}
+            </span>
+          </div>
+
+        </div>
+      `;
+    });
+    html += '</div>';
+    container.innerHTML = html;
+  } catch (err) {
+    console.error("Top Movers layout generation halted:", err);
+    container.innerHTML = '<div style="color:#ff3b30; padding:12px; text-align:center; font-size:12px;">Pipeline mapping interruption.</div>';
+  }
 }
+
 function renderTrend(arr){
   if(!arr.length) { document.getElementById("trendBody").innerHTML = '<div style="font-size:12px;padding:10px;color:#475569;">Movers feed synchronization locking.</div>'; return; }
   document.getElementById("trendBody").innerHTML = arr.slice(0, 8).map(function(s){
