@@ -163,6 +163,7 @@ async function yfNews(q) {
 
 async function yfMovers() {
   try {
+    // 1. Fetch trending tickers from standard endpoint
     var url = "https://query1.finance.yahoo.com/v1/finance/trending/IN";
     var j = await proxyFetch(url).catch(() => null);
     var trendingQuotes = (j && j.finance && j.finance.result && j.finance.result[0] && j.finance.result[0].quotes) || [];
@@ -173,47 +174,57 @@ async function yfMovers() {
       return sym && !sym.startsWith("^") && !sym.includes("=") && !sym.includes("-") && sym.length <= 10;
     });
 
+    // 2. AI Fallback Layer
     if (!dynamicPool || !dynamicPool.length) {
       try {
-        var aiStocks = await freeAI("Provide a JSON array of 10 high-volume active large-cap NSE India stock tickers. Return strictly a valid JSON array of strings like [\"SBIN\",\"INFY\"]. No markdown formatting.");
+        var aiStocks = await freeAI("Provide a JSON array of 8 active high-volume large-cap NSE stock tickers. Return strictly a valid clean JSON array of strings like [\"SBIN\",\"INFY\"]. No markdown.");
         dynamicPool = pja(aiStocks) || [];
       } catch (aiErr) {}
     }
 
+    // 3. Dynamic Cache Harvest Fallback Layer
     if (!dynamicPool || !dynamicPool.length) {
       dynamicPool = Object.keys(window.CACHE.prices).filter(function(key) { return !key.startsWith("^"); });
     }
     
+    // 4. Secondary text fallback safeguard
     if (!dynamicPool || !dynamicPool.length) {
-      var backupAi = await freeAI("List 6 random high-volume NSE stock symbols separated only by commas, no extra text.");
+      var backupAi = await freeAI("List 5 active NSE stock symbols separated only by commas.");
       if (backupAi) { dynamicPool = backupAi.split(",").map(function(s) { return s.trim().toUpperCase(); }); }
     }
 
-    var promises = dynamicPool.slice(0, 10).map(async function(sym) {
+    var formatted = [];
+    var maxTargets = dynamicPool.slice(0, 5); // Limit to top 5 to keep loads fast
+
+    // 5. Staggered execution loop avoids triggering proxy rate limit bans
+    for (var i = 0; i < maxTargets.length; i++) {
+      var sym = maxTargets[i];
+      if (!sym || typeof sym !== 'string') continue;
+      
       try {
-        if (!sym || typeof sym !== 'string') return null;
         var tickerStr = sym.toUpperCase().trim();
         var q = await yfQuote(tickerStr);
-        if (!q) return null;
-        
-        return {
-          ticker:    tickerStr,
-          name:      q.name,
-          price:     q.price,
-          chg:       q.changePct,
-          change:    q.change,
-          changePct: q.changePct,
-          up:        q.up,
-          rawChg:    Math.abs(parseFloat(q.changePct)) || 0
-        };
-      } catch (err) {
-        return null;
+        if (q) {
+          formatted.push({
+            ticker:    tickerStr,
+            name:      q.name,
+            price:     q.price,
+            chg:       q.changePct,
+            change:    q.change,
+            changePct: q.changePct,
+            up:        q.up,
+            rawChg:    Math.abs(parseFloat(q.changePct)) || 0
+          });
+        }
+      } catch (innerErr) {
+        console.error("Skipping ticker subfetch due to parameter error", innerErr);
       }
-    });
-
-    var results = await Promise.all(promises);
-    var formatted = results.filter(r => r !== null);
-    return formatted.sort((a, b) => b.rawChg - a.rawChg).slice(0, 6);
+      
+      // Crucial 120ms breathing window space resets proxy firewall tracking flags
+      await sleep(120);
+    }
+    
+    return formatted.sort((a, b) => b.rawChg - a.rawChg);
   } catch(e) {
     console.error("Movers synchronization failure:", e);
     return [];
