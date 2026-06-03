@@ -397,12 +397,13 @@ async function sendChat(){
 }
 
 async function bootDashboard() {
-  // Staggered initialization to avoid simultaneous proxy requests
-  await loadIdx(); 
-  await sleep(500);
-  await loadTrend();
-  await sleep(500);
-  await loadNews();
+  try { await loadIdx(); } catch(e) { console.error("Index load failed:", e); }
+  await new Promise(r => setTimeout(r, 500));
+  
+  try { await loadTrend(); } catch(e) { console.error("Trend load failed:", e); }
+  await new Promise(r => setTimeout(r, 500));
+  
+  try { await loadNews(); } catch(e) { console.error("News load failed:", e); }
 }
 
 // Updated Switch Tab with immediate contextual triggering
