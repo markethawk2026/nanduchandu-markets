@@ -84,7 +84,7 @@ async function loadNews(targetTicker) {
   var container = document.getElementById("newsBody");
   if (!container) return;
 
-  // REQUIREMENT: Render animated loading layout state while data fetches
+  // 1. Render animated loading layout state while data fetches
   container.innerHTML = `
     <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:48px; gap:12px; width:100%;">
       <div style="width:26px; height:26px; border:3px solid rgba(56,189,248,0.1); border-top-color:#38bdf8; border-radius:50%; animation:newsSpin 0.7s linear infinite;"></div>
@@ -93,69 +93,84 @@ async function loadNews(targetTicker) {
     <style>@keyframes newsSpin { to { transform: rotate(360deg); } }</style>
   `;
 
-  var ticker = targetTicker || "";
-  if(!ticker) {
-    var searchBox = document.getElementById("searchBox");
-    if(searchBox && searchBox.value) ticker = searchBox.value;
-  }
+  // 2. ENCASE PIPELINE IN AN EXCEPTION-SHIELD TO PREVENT INFINITE LOADING LATCHES
+  try {
+    var ticker = targetTicker || "";
+    if(!ticker) {
+      var searchBox = document.getElementById("searchBox");
+      if(searchBox && searchBox.value) ticker = searchBox.value;
+    }
 
-  var articles = await yfNews(ticker);
-  window.ACTIVE_NEWS_POOL = articles;
+    // Attempt retrieval from data streams
+    var articles = await yfNews(ticker);
+    window.ACTIVE_NEWS_POOL = articles || [];
 
-  if (!articles || articles.length === 0) {
-    container.innerHTML = '<div style="color:#64748b; padding:32px; text-align:center; font-size:13px;">No news profiles matched this session parameter.</div>';
-    return;
-  }
+    if (!articles || articles.length === 0) {
+      container.innerHTML = '<div style="color:#64748b; padding:32px; text-align:center; font-size:13px;">No news profiles matched this session parameter.</div>';
+      return;
+    }
 
-  // REQUIREMENT: Dark-mode safe, responsive layout framework (Stacks on mobile, row split on desktop)
-  var layoutHtml = `
-    <div style="display: flex; flex-wrap: wrap; gap: 16px; width: 100%; min-height: 360px; background: #0b0f19; border-radius: 12px; padding: 2px;">
-      
-      <div id="newsSidebar" style="flex: 1 1 340px; max-height: 400px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 6px; border-right: 1px solid #1e293b;">
-  `;
+    // Dark-mode safe, responsive split layout framework
+    var layoutHtml = `
+      <div style="display: flex; flex-wrap: wrap; gap: 16px; width: 100%; min-height: 360px; background: #0b0f19; border-radius: 12px; padding: 2px;">
+        
+        <div id="newsSidebar" style="flex: 1 1 340px; max-height: 400px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 6px; border-right: 1px solid #1e293b;">
+    `;
 
-  // REQUIREMENT: Clickable sidebar elements
-  articles.forEach(function(article) {
-    layoutHtml += `
-      <div id="card_${article.id}" 
-           onclick="viewArticleDetail('${article.id}')"
-           style="background: #111827; border: 1px solid #1e293b; padding: 12px; border-radius: 8px; cursor: pointer; transition: all 0.2s ease;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; gap: 8px;">
-          <span style="color: #38bdf8; font-size: 11px; font-weight: 700; text-transform: uppercase;">${article.source}</span>
-          <span style="color: #64748b; font-size: 10px; font-weight: 500;">${article.time}</span>
+    articles.forEach(function(article) {
+      layoutHtml += `
+        <div id="card_${article.id}" 
+             onclick="viewArticleDetail('${article.id}')"
+             style="background: #111827; border: 1px solid #1e293b; padding: 12px; border-radius: 8px; cursor: pointer; transition: all 0.2s ease;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; gap: 8px;">
+            <span style="color: #38bdf8; font-size: 11px; font-weight: 700; text-transform: uppercase;">${article.source}</span>
+            <span style="color: #64748b; font-size: 10px; font-weight: 500;">${article.time}</span>
+          </div>
+          <p style="color: #f1f5f9; font-size: 12.5px; font-weight: 600; line-height: 1.4; margin: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+            ${article.headline}
+          </p>
         </div>
-        <p style="color: #f1f5f9; font-size: 12.5px; font-weight: 600; line-height: 1.4; margin: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
-          ${article.headline}
-        </p>
+      `;
+    });
+
+    layoutHtml += `
+        </div>
+        
+        <div id="newsDetailPanel" style="flex: 1.3 1 380px; padding: 16px; display: flex; flex-direction: column; justify-content: center; background: #111827; border-radius: 8px; border: 1px solid #1e293b; min-height: 220px;">
+          <div style="text-align: center; color: #64748b;">
+            <p style="font-size: 13px; font-weight: 500; margin: 0;">Select an article headline from the feed panel to inspect the live executive summary.</p>
+          </div>
+        </div>
+
+      </div>
+      
+      <style>
+        #newsSidebar::-webkit-scrollbar { width: 4px; }
+        #newsSidebar::-webkit-scrollbar-track { background: #0b0f19; }
+        #newsSidebar::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 2px; }
+        #newsSidebar::-webkit-scrollbar-thumb:hover { background: #38bdf8; }
+      </style>
+    `;
+
+    container.innerHTML = layoutHtml;
+
+    // Auto-focus the first item in the list immediately to keep workspace populated
+    if (articles.length > 0) {
+      viewArticleDetail(articles[0].id);
+    }
+
+  } catch (renderError) {
+    console.error("News interface compilation halted:", renderError);
+    
+    // HARD CRASH PROTECTION: Instantly clears the infinite loader loop if anything breaks
+    container.innerHTML = `
+      <div style="background: #111827; border: 1px solid #1e293b; padding: 24px; border-radius: 8px; text-align: center;">
+        <p style="color: #94a3b8; font-size: 13px; margin: 0 0 12px 0;">Local data alignment processing error encountered.</p>
+        <button onclick="loadNews()" style="background: #1e293b; color: #38bdf8; border: 1px solid #38bdf8; padding: 6px 16px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer;">
+          Force Pipeline Sync
+        </button>
       </div>
     `;
-  });
-
-  // REQUIREMENT: Interactive Detail Panel View Column Deck
-  layoutHtml += `
-      </div>
-      
-      <div id="newsDetailPanel" style="flex: 1.3 1 380px; padding: 16px; display: flex; flex-direction: column; justify-content: center; background: #111827; border-radius: 8px; border: 1px solid #1e293b; min-height: 220px;">
-        <div style="text-align: center; color: #64748b;">
-          <p style="font-size: 13px; font-weight: 500; margin: 0;">Select an article headline from the feed panel to inspect the live executive summary.</p>
-        </div>
-      </div>
-
-    </div>
-    
-    <style>
-      #newsSidebar::-webkit-scrollbar { width: 4px; }
-      #newsSidebar::-webkit-scrollbar-track { background: #0b0f19; }
-      #newsSidebar::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 2px; }
-      #newsSidebar::-webkit-scrollbar-thumb:hover { background: #38bdf8; }
-    </style>
-  `;
-
-  container.innerHTML = layoutHtml;
-
-  // Auto-focus the first item in the list immediately to keep the workspace populated
-  if (articles.length > 0) {
-    viewArticleDetail(articles[0].id);
   }
 }
 
