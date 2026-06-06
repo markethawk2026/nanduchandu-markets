@@ -77,17 +77,23 @@ async function doSearch(q) {
 ddEl.addEventListener("click", function(e){ var r = e.target.closest(".ddr"); if(r){ ddEl.classList.remove("open"); siEl.value = r.getAttribute("data-t"); runAnalysis(r.getAttribute("data-t")); } });
 document.addEventListener("click", function(e){ if(!e.target.closest(".sw")) ddEl.classList.remove("open"); });
 
-// Global workspace memory tracking active tickers for selection queries
+// Global memory pools to store fetched datasets for instant local rendering
 window.ACTIVE_NEWS_POOL = [];
+window.MOVERS_DATA_POOL = [];
 
-// 1. SECURE PRE-REGISTRATION OF THE NEWS DETAIL VIEW CONTROLLER
+if (!window.CURRENT_MOVERS_SECTOR) window.CURRENT_MOVERS_SECTOR = "ALL";
+if (!window.CURRENT_MOVERS_TAB) window.CURRENT_MOVERS_TAB = "GAINERS";
+
+// ==========================================
+// 1. HARDENED INTERACTIVE NEWS WORKSPACE
+// ==========================================
 window.viewArticleDetail = function(id) {
   if (!window.ACTIVE_NEWS_POOL || !window.ACTIVE_NEWS_POOL.length) return;
   var target = window.ACTIVE_NEWS_POOL.find(a => a.id === id);
   var detailPane = document.getElementById("newsDetailPanel");
   if (!target || !detailPane) return;
 
-  // Reset passive tracking borders across sibling cards
+  // Reset tracking borders across sibling cards
   window.ACTIVE_NEWS_POOL.forEach(function(art) {
     var el = document.getElementById("card_" + art.id);
     if (el) {
@@ -96,14 +102,13 @@ window.viewArticleDetail = function(id) {
     }
   });
 
-  // Apply real-time highlight styles onto the active selected card
+  // Apply active highlight to selected card
   var activeCard = document.getElementById("card_" + id);
   if (activeCard) {
     activeCard.style.borderColor = "#38bdf8";
     activeCard.style.background = "rgba(56, 189, 248, 0.03)";
   }
 
-  // Populate reading workspace viewer deck cleanly
   detailPane.innerHTML = `
     <div style="display: flex; flex-direction: column; gap: 12px; justify-content: flex-start; height: 100%; text-align: left; animation: newsFade 0.2s ease-out;">
       <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #1e293b; padding-bottom: 8px; width: 100%;">
@@ -114,23 +119,19 @@ window.viewArticleDetail = function(id) {
           ${target.time || "Just now"}
         </span>
       </div>
-
       <h4 style="color: #ffffff; font-size: 14.5px; font-weight: 700; line-height: 1.4; margin: 0;">
-        ${target.headline || "Market Update Matrix"}
+        ${target.headline || "Market Update"}
       </h4>
-
       <div style="background: #0b0f19; border: 1px solid #1e293b; border-radius: 6px; padding: 12px; margin-top: 4px;">
         <span style="color: #64748b; font-size: 9.5px; font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 6px; letter-spacing: 0.5px;">Executive Summary</span>
         <p style="color: #94a3b8; font-size: 12.5px; line-height: 1.5; margin: 0; font-weight: 400;">
-          ${target.summary || "System metrics mapping real-time exposure matrices variations."}
+          ${target.summary || "Processing intelligence wire parameters..."}
         </p>
       </div>
     </div>
-    <style>@keyframes newsFade { from { opacity: 0; } to { opacity: 1; } }</style>
   `;
 };
 
-// 2. SELF-HEALING MARKET NEWS RENDER MATRIX
 async function loadNews(targetTicker) {
   var container = document.getElementById("newsBody");
   if (!container) return;
@@ -146,11 +147,17 @@ async function loadNews(targetTicker) {
   try {
     var ticker = targetTicker || "";
     if (!ticker) {
-      var searchBox = document.getElementById("searchBox") || document.getElementById("si");
+      var searchBox = document.getElementById("si");
       if (searchBox && searchBox.value) ticker = searchBox.value;
     }
 
-    var articles = await yfNews(ticker);
+    var articles = [];
+    try {
+      articles = await yfNews(ticker);
+    } catch(apiErr) {
+      console.warn("Primary news stream interrupted, falling back...", apiErr);
+    }
+    
     window.ACTIVE_NEWS_POOL = Array.isArray(articles) ? articles : [];
 
     if (window.ACTIVE_NEWS_POOL.length === 0) {
@@ -197,46 +204,49 @@ async function loadNews(targetTicker) {
 
     container.innerHTML = layoutHtml;
 
-    // Trigger preview auto-load for the initial element in the pool context
     if (window.ACTIVE_NEWS_POOL.length > 0) {
       window.viewArticleDetail(window.ACTIVE_NEWS_POOL[0].id);
     }
-
   } catch (renderError) {
-    console.error("News interface compilation halted:", renderError);
-    container.innerHTML = `
-      <div style="background: #111827; border: 1px solid #1e293b; padding: 24px; border-radius: 8px; text-align: center; width: 100%;">
-        <p style="color: #94a3b8; font-size: 13px; margin: 0 0 12px 0;">Local data alignment processing error encountered.</p>
-        <button onclick="loadNews()" style="background: #1e293b; color: #38bdf8; border: 1px solid #38bdf8; padding: 6px 16px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer;">
-          Force Pipeline Sync
-        </button>
-      </div>
-    `;
+    console.error("News interface rendering crash caught:", renderError);
+    container.innerHTML = `<div style="color:#64748b; padding:32px; text-align:center; font-size:13px;">News feed compilation halted. Click refresh to retry.</div>`;
   }
 }
+document.getElementById("btnNews").addEventListener("click", function(){ loadNews(true); });
 
-// Retain filter state properties consistently during session panel navigation loops
-if (!window.CURRENT_MOVERS_SECTOR) window.CURRENT_MOVERS_SECTOR = "ALL";
-if (!window.CURRENT_MOVERS_TAB) window.CURRENT_MOVERS_TAB = "GAINERS";
-
-// 3. SECURE SECTOR CONTROLLER (CASE-INSENSITIVE INTEGRATION)
-async function loadTrend() {
+// ==========================================
+// 2. HIGH-SPEED TOP MOVERS DESK FRAMEWORK
+// ==========================================
+async function loadTrend(forceRefresh) {
   var container = document.getElementById("moversBody") || document.getElementById("trendBody");
   if (!container) return;
 
-  var rawData = await yfMovers();
-  if (!rawData || rawData.length === 0) {
-    container.innerHTML = '<div style="color:#64748b; padding:20px; text-align:center; font-size:12px;">Syncing trading desk sectors...</div>';
-    return;
+  if (!window.MOVERS_DATA_POOL || !window.MOVERS_DATA_POOL.length || forceRefresh === true) {
+    container.innerHTML = `
+      <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:32px; gap:8px; width:100%;">
+        <div style="width:20px; height:20px; border:2.5px solid rgba(56,189,248,0.1); border-top-color:#38bdf8; border-radius:50%; animation:trendSpin 0.6s linear infinite;"></div>
+        <span style="color:#64748b; font-size:11px; font-weight:600; text-transform:uppercase;">Assembling Exchange Sectors...</span>
+      </div>
+      <style>@keyframes trendSpin { to { transform: rotate(360deg); } }</style>
+    `;
+    var rawData = await yfMovers();
+    window.MOVERS_DATA_POOL = Array.isArray(rawData) ? rawData : [];
   }
 
-  // CASE-INSENSITIVE SECTOR FILTER MATCHER (Prevents case mismatched empty sorting fields)
-  var filteredData = rawData.filter(function(item) {
+  renderTrendUI();
+}
+
+function renderTrendUI() {
+  var container = document.getElementById("moversBody") || document.getElementById("trendBody");
+  if (!container || !window.MOVERS_DATA_POOL) return;
+
+  // Case-insensitive filtering pass
+  var filteredData = window.MOVERS_DATA_POOL.filter(function(item) {
     if (window.CURRENT_MOVERS_SECTOR === "ALL") return true;
     return String(item.sector).toUpperCase().trim() === String(window.CURRENT_MOVERS_SECTOR).toUpperCase().trim();
   });
 
-  // METRIC TRADING VIEW TAB FILTER
+  // Tab sorting rule configurations
   if (window.CURRENT_MOVERS_TAB === "GAINERS") {
     filteredData = filteredData.filter(i => i.rawChangePct >= 0).sort((a, b) => b.rawChangePct - a.rawChangePct);
   } else if (window.CURRENT_MOVERS_TAB === "LOSERS") {
@@ -251,21 +261,19 @@ async function loadTrend() {
       <div style="display: flex; gap: 6px; border-bottom: 1px solid #1e293b; padding-bottom: 8px;">
         ${["GAINERS", "LOSERS", "ACTIVE"].map(function(tab) {
           var label = tab === "ACTIVE" ? "Most Active" : "Top " + tab.charAt(0) + tab.slice(1).toLowerCase();
-          var isActive = window.CURRENT_MOVERS_TAB === tab;
-          var btnStyle = isActive 
+          var btnStyle = window.CURRENT_MOVERS_TAB === tab 
             ? "background: #1e293b; color: #38bdf8; border-color: #38bdf8;" 
             : "background: transparent; color: #64748b; border-color: transparent;";
-          return `<button onclick="window.CURRENT_MOVERS_TAB='${tab}'; loadTrend();" style="padding: 6px 12px; border-radius: 6px; border: 1px solid; font-size: 11.5px; font-weight: 700; cursor: pointer; transition: all 0.2s; ${btnStyle}">${label}</button>`;
+          return `<button onclick="window.CURRENT_MOVERS_TAB='${tab}'; renderTrendUI();" style="padding: 6px 12px; border-radius: 6px; border: 1px solid; font-size: 11.5px; font-weight: 700; cursor: pointer; transition: all 0.2s; ${btnStyle}">${label}</button>`;
         }).join("")}
       </div>
 
       <div id="sectorScrollStrip" style="display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; width: 100%;">
         ${["ALL", "IT", "BANKING", "PHARMA", "AUTO", "FMCG", "ENERGY", "METAL", "REALTY", "TELECOM", "FINANCIAL SERVICES"].map(function(sec) {
-          var isActive = window.CURRENT_MOVERS_SECTOR === sec;
-          var btnStyle = isActive 
+          var btnStyle = window.CURRENT_MOVERS_SECTOR === sec 
             ? "background: #38bdf8; color: #0b0f19; font-weight: 800; border-color: #38bdf8;" 
             : "background: #111827; color: #94a3b8; font-weight: 600; border-color: #1e293b;";
-          return `<button onclick="window.CURRENT_MOVERS_SECTOR='${sec}'; loadTrend();" style="padding: 5px 11px; border-radius: 20px; border: 1px solid; font-size: 10.5px; cursor: pointer; white-space: nowrap; transition: all 0.15s; ${btnStyle}">${sec}</button>`;
+          return `<button onclick="window.CURRENT_MOVERS_SECTOR='${sec}'; renderTrendUI();" style="padding: 5px 11px; border-radius: 20px; border: 1px solid; font-size: 10.5px; cursor: pointer; white-space: nowrap; transition: all 0.15s; ${btnStyle}">${sec}</button>`;
         }).join("")}
       </div>
 
@@ -273,17 +281,17 @@ async function loadTrend() {
   `;
 
   if (filteredData.length === 0) {
-    html += `<div style="color: #64748b; text-align: center; padding: 24px; font-size: 12px; background: #111827; border-radius: 8px; border: 1px solid #1e293b;">No dynamic assets matched this operational parameter.</div>`;
+    html += `<div style="color: #64748b; text-align: center; padding: 24px; font-size: 12px; background: #111827; border-radius: 8px; border: 1px solid #1e293b;">No dynamic companies matched this filter configuration.</div>`;
   } else {
     filteredData.forEach(function(item) {
       var trendColor = item.up ? "#00b06a" : "#ff3b30";
       var trendBg = item.up ? "rgba(0,176,106,0.05)" : "rgba(255,59,48,0.05)";
 
       html += `
-        <div onclick="window.location.hash='#analysis'; document.getElementById('searchBox').value='${item.ticker}'; if(typeof doSearch==='function')doSearch('${item.ticker}');"
+        <div onclick="window.location.hash='#analysis'; var box=document.getElementById('si'); if(box){box.value='${item.ticker}';} if(typeof doSearch==='function')doSearch('${item.ticker}');"
              style="display: flex; justify-content: space-between; align-items: center; background: #111827; padding: 10px 14px; border-radius: 8px; border: 1px solid #1e293b; cursor: pointer; transition: all 0.15s;"
-             onmouseover="this.style.borderColor='#38bdf8'; this.style.transform='translateX(2px)';"
-             onmouseout="this.style.borderColor='#1e293b'; this.style.transform='none';">
+             onmouseover="this.style.borderColor='#38bdf8'; this.style.transform='translateX(2px)'"
+             onmouseout="this.style.borderColor='#1e293b'; this.style.transform='none'">
           
           <div style="display: flex; flex-direction: column; gap: 2px; text-align: left;">
             <div style="display: flex; align-items: center; gap: 6px;">
@@ -319,27 +327,26 @@ async function loadTrend() {
   `;
 
   container.innerHTML = html;
-}
 
+  // Restore Downstream Quick View Marquee Strips
+  var quickViewStrip = document.getElementById("quickViewStrip");
+  if (quickViewStrip && window.MOVERS_DATA_POOL.length > 0) {
+    var stripHTML = '<span style="font-size: 11px; color: #64748b; align-self: center; margin-right: 4px; font-weight: 600; white-space: nowrap;">⚡ Quick View:</span>';
+    window.MOVERS_DATA_POOL.slice(0, 6).forEach(function(s) {
+      stripHTML += '<span class="csg" onclick="runAnalysis(\'' + s.ticker + '\')" style="margin:0; padding: 5px 12px;">' + s.ticker + '</span>';
+    });
+    quickViewStrip.innerHTML = stripHTML;
+  }
 
-function renderTrend(arr){
-  if(!arr.length) { document.getElementById("trendBody").innerHTML = '<div style="font-size:12px;padding:10px;color:#475569;">Movers feed synchronization locking.</div>'; return; }
-  document.getElementById("trendBody").innerHTML = arr.slice(0, 8).map(function(s){
-    var up = isUp(s.chg); var pc = up ? "#22c55e" : "#ef4444";
-    var emoji = ["📈", "📊", "⚡", "🚀", "💎", "🔋", "🏢", "🏭"][Math.floor(Math.random() * 8)];
-    return '<div class="tcard" data-t="' + s.ticker + '"><span style="font-size:18px;margin-right:4px;">' + emoji + '</span>' +
-      '<div style="flex:1;min-width:0;"><div style="font-size:12px;font-weight:700;color:#e2e8f4;">' + s.ticker + '</div><div style="font-size:10px;color:#475569;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + s.name + '</div></div>' +
-      '<div style="text-align:right;"><div style="font-size:12px;font-weight:700;color:' + pc + '">' + s.price + '</div><div style="font-size:10px;color:' + pc + '">' + (up ? "▲" : "▼") + ' ' + s.chg + '</div></div></div>';
-  }).join("");
-  
-  var stripHTML = '<span style="font-size: 11px; color: #64748b; align-self: center; margin-right: 4px; font-weight: 600; white-space: nowrap;">⚡ Quick View:</span>';
-  arr.slice(0, 6).forEach(function(s) { stripHTML += '<span class="csg" onclick="runAnalysis(\'' + s.ticker + '\')" style="margin:0; padding: 5px 12px;">' + s.ticker + '</span>'; });
-  document.getElementById("quickViewStrip").innerHTML = stripHTML;
-
-  var chatSgHTML = ""; arr.slice(0, 4).forEach(function(s) { chatSgHTML += '<span class="csg" onclick="document.getElementById(\'chatIn\').value=this.textContent;sendChat();">Is ' + s.ticker + ' a good buy?</span>'; });
-  var chatSgBox = document.getElementById("chatSuggestions"); if(chatSgBox) chatSgBox.innerHTML = chatSgHTML;
-
-  document.querySelectorAll(".tcard").forEach(function(el){ el.addEventListener("click", function(){ runAnalysis(el.getAttribute("data-t")); }); });
+  // Restore Chat Copilot Prompt Suggestion Badges
+  var chatSgBox = document.getElementById("chatSuggestions");
+  if (chatSgBox && window.MOVERS_DATA_POOL.length > 0) {
+    var chatSgHTML = "";
+    window.MOVERS_DATA_POOL.slice(0, 4).forEach(function(s) {
+      chatSgHTML += '<span class="csg" onclick="document.getElementById(\'chatIn\').value=this.textContent;sendChat();">Is ' + s.ticker + ' a good buy?</span>';
+    });
+    chatSgBox.innerHTML = chatSgHTML;
+  }
 }
 document.getElementById("btnTrend").addEventListener("click", function(){ loadTrend(true); });
 
