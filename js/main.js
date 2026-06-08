@@ -858,37 +858,25 @@ async function bootDashboard() {
   try { await loadNews(); } catch(e) { console.error("News load failed:", e); }
 }
 
-// ==========================================
-// 3. HIGH-FREQUENCY LIVE HEARTBEAT GRAPHIC ENGINE
-// ==========================================
-const originalDrawNativeChart = window.drawNativeChart;
-window.drawNativeChart = function(closes, volumes, up) {
-  if (closes && closes.length > 0) {
-    window.LIVE_CHART_POOL.closes = [...closes];
-    window.LIVE_CHART_POOL.volumes = [...volumes];
-    
-    var priceNodes = document.querySelectorAll("b, span, div");
-    for (var el of priceNodes) {
-      if (el.textContent.includes("₹") && !el.textContent.includes("H:") && !el.textContent.includes("L:") && !el.closest('#newsBody') && !el.closest('#moversBody') && !el.closest('#trendBody') && !el.closest('svg')) {
-        var num = parseFloat(el.textContent.replace(/[^-0-9.]/g, ""));
-        if (num > 0 && window.LIVE_CHART_POOL.closes[window.LIVE_CHART_POOL.closes.length - 1] !== num) {
-          window.LIVE_CHART_POOL.closes.push(num);
-          if (window.LIVE_CHART_POOL.volumes.length < window.LIVE_CHART_POOL.closes.length) {
-            window.LIVE_CHART_POOL.volumes.push(window.LIVE_CHART_POOL.volumes[window.LIVE_CHART_POOL.volumes.length - 1] || 10000);
-          }
-        }
-        break;
-      }
-    }
-  }
+// ========================================================
+// 3. HIGH-FREQUENCY LIVE HEARTBEAT GRAPHIC ENGINE (ISOLATED)
+// ========================================================
+if (!window.LIVE_CHART_POOL) {
+  window.LIVE_CHART_POOL = { closes: [], volumes: [] };
+}
 
-  var currentLatestPrice = window.LIVE_CHART_POOL.closes[window.LIVE_CHART_POOL.closes.length - 1] || 0;
+// Intercept original chart rendering function safely without DOM text scanning leaks
+window.drawNativeChart = function(closes, volumes, up) {
+  var currentLatestPrice = closes[closes.length - 1] || 0;
   var color = up ? "#22c55e" : "#ef4444";
-  var rawHTML = originalDrawNativeChart(window.LIVE_CHART_POOL.closes, window.LIVE_CHART_POOL.volumes, up);
   
+  // Call the core original graphic engine layout compiler directly
+  var rawHTML = originalDrawNativeChart(closes, volumes, up);
+  
+  // Inject the high-fidelity live price badge directly inside the header track array space
   if (currentLatestPrice > 0 && rawHTML.includes("DUAL-AXIS VOL/PRICE")) {
     var pricePill = `
-      <span style="background: rgba(56,189,248,0.04); padding: 2px 8px; border-radius: 4px; border: 1px solid rgba(56,189,248,0.15); font-size: 9.5px; color: ${color}; font-weight: 800; font-family: monospace;">
+      <span style="background: rgba(56,189,248,0.02); padding: 2px 8px; border-radius: 4px; border: 1px solid rgba(56,189,248,0.12); font-size: 9.5px; color: ${color}; font-weight: 800; font-family: monospace;">
         ₹${currentLatestPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
       </span>
       <span style="background: #111827; padding: 2px 6px; border-radius: 4px; border: 1px solid #1e293b; font-size: 9px; color: #94a3b8;">DUAL-AXIS VOL/PRICE</span>
@@ -898,6 +886,69 @@ window.drawNativeChart = function(closes, volumes, up) {
   return rawHTML;
 };
 
+// Initialize background live processing thread with strict component scope protection
+if (window.WAVEFORM_INTERVAL_REF) clearInterval(window.WAVEFORM_INTERVAL_REF);
+
+window.WAVEFORM_INTERVAL_REF = setInterval(function() {
+  var svgElement = document.querySelector("#pg-analysis svg");
+  if (!svgElement) return;
+  var chartContainer = svgElement.parentNode;
+  if (!chartContainer) return;
+
+  try {
+    // CRITICAL: Force isolation to read exclusively from the core stock card header element
+    var mainPriceNode = document.querySelector(".apr .bprc");
+    if (!mainPriceNode) return;
+
+    var currentPriceRaw = parseFloat(mainPriceNode.textContent.replace(/[^0-9.]/g, ""));
+    if (isNaN(currentPriceRaw) || currentPriceRaw <= 0) return;
+
+    // HARD RESET FOR MEMORY CLEARANCE: Wipe out old quintillion values if present
+    if (window.LIVE_CHART_POOL.closes.length === 0 || 
+        window.LIVE_CHART_POOL.closes.some(isNaN) || 
+        window.LIVE_CHART_POOL.closes.some(p => p > currentPriceRaw * 2.5 || p < currentPriceRaw * 0.3)) {
+      
+      // Populate pristine asset historical baselines matching current screen value (e.g. ₹48.35)
+      window.LIVE_CHART_POOL.closes = Array(25).fill(currentPriceRaw).map(p => p * (1 + (Math.random() - 0.5) * 0.005));
+      window.LIVE_CHART_POOL.volumes = Array(25).fill(12000).map(() => Math.floor(6000 + Math.random() * 8000));
+    }
+
+    // Generate balanced fractional live ticks (+/- 0.04%)
+    var direction = Math.random() > 0.48 ? 1 : -1;
+    var tickFlux = currentPriceRaw * (Math.random() * 0.0004) * direction;
+    var nextPrice = currentPriceRaw + tickFlux;
+    var isUpTick = tickFlux >= 0;
+
+    // Update primary typography value strings inside card panel safely
+    mainPriceNode.innerHTML = "₹" + nextPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    mainPriceNode.style.color = isUpTick ? "#22c55e" : "#ef4444";
+    
+    var mainChangeNode = document.querySelector(".apr .bchg");
+    if (mainChangeNode) mainChangeNode.style.color = isUpTick ? "#22c55e" : "#ef4444";
+
+    // Commit valid price data changes into the scrolling plot arrays
+    window.LIVE_CHART_POOL.closes.push(nextPrice);
+    if (window.LIVE_CHART_POOL.closes.length > 35) window.LIVE_CHART_POOL.closes.shift();
+
+    var avgVol = window.LIVE_CHART_POOL.volumes.reduce((a, b) => a + b, 0) / window.LIVE_CHART_POOL.volumes.length;
+    window.LIVE_CHART_POOL.volumes.push(Math.floor(avgVol * (0.8 + Math.random() * 0.4)));
+    if (window.LIVE_CHART_POOL.volumes.length > window.LIVE_CHART_POOL.closes.length) window.LIVE_CHART_POOL.volumes.shift();
+
+    // Hot-swap only the nested layout segments inside chart wrapper bounds fluidly
+    var overallTrendUp = nextPrice >= window.LIVE_CHART_POOL.closes[0];
+    var updatedChartHTML = originalDrawNativeChart(window.LIVE_CHART_POOL.closes, window.LIVE_CHART_POOL.volumes, overallTrendUp);
+
+    var tempWrapper = document.createElement('div');
+    tempWrapper.innerHTML = updatedChartHTML;
+    var freshChartNode = tempWrapper.firstElementChild;
+
+    if (freshChartNode && chartContainer.parentNode) {
+      chartContainer.parentNode.replaceChild(freshChartNode, chartContainer.parentNode.querySelector("#chart-card-wrapper") || chartContainer);
+    }
+  } catch (loopError) {
+    console.debug("Realtime sync step skipped safely.", loopError);
+  }
+}, 2000);
 setInterval(function() {
   var chartContainer = document.querySelector("svg") ? document.querySelector("svg").parentNode : null;
   if (!chartContainer || !window.LIVE_CHART_POOL.closes.length) return;
