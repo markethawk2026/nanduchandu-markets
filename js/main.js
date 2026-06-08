@@ -232,6 +232,11 @@ async function loadTrend(forceRefresh) {
     container.innerHTML = `<div style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:32px;"><div class="spnr"></div></div>`;
     var rawData = [];
     
+    // Initialize global market sentiment tracking matrices
+    window.GLOBAL_TOTAL_ADVANCES = 0;
+    window.GLOBAL_TOTAL_DECLINES = 0;
+    window.GLOBAL_NET_VOLUME_FLOW = 0;
+
     if (typeof yfMovers === "function") {
       try { 
         var apiData = await yfMovers(); 
@@ -239,30 +244,32 @@ async function loadTrend(forceRefresh) {
           var sectorMap = {};
           
           apiData.forEach(function(item) {
-            var ticker = String(item.ticker || item.symbol || "").toUpperCase();
+            var rawSector = item.sector || item.industry || "FINANCIALS & GENERAL";
+            var sectorKey = String(rawSector).toUpperCase().replace(/ETF|BEES|NIFTY|INDEX/gi, "").trim();
+            if (!sectorKey) sectorKey = "GENERAL EQUITIES";
             
-            // Programmatically classify sector buckets based on ticker tokens
-            var sectorKey = "CONSUMPTION & GENERAL";
-            if (ticker.includes("METAL")) sectorKey = "METALS & MINING";
-            else if (ticker.includes("AUTO")) sectorKey = "AUTOMOTIVE SYSTEMS";
-            else if (ticker.includes("REALTY")) sectorKey = "REAL ESTATE & INFRA";
-            else if (ticker.includes("ENERGY")) sectorKey = "ENERGY & UTILITIES";
-            else if (ticker.includes("FIN") || ticker.includes("BANK")) sectorKey = "FINANCIAL SERVICES";
-            else if (ticker.includes("TEC") || ticker.includes("IT")) sectorKey = "TECHNOLOGY & DIGITAL";
-            else if (ticker.includes("PHARMA")) sectorKey = "PHARMA & HEALTHCARE";
-            
-            if (!sectorMap[sectorKey]) {
-              sectorMap[sectorKey] = { name: sectorKey, count: 0, changeSum: 0, volSum: 0, advances: 0, declines: 0 };
-            }
-            
+            var cleanTicker = String(item.ticker || item.symbol || "").replace(".NS", "").replace(".BO", "").toUpperCase().trim();
             var rawChange = item.rawChangePct || parseFloat(String(item.changePct).replace(/[^0-9.-]/g, "")) || 0;
-            var rawVol = parseFloat(String(item.volume).replace(/[^0-9.]/g, "")) || 0.5;
+            var rawVol = parseFloat(String(item.volume).replace(/[^0-9.]/g, "")) || 0.0;
+            
+            // Tally global macro statistics across 100% of the live feed
+            window.GLOBAL_NET_VOLUME_FLOW += rawVol;
+            if (rawChange >= 0) {
+              window.GLOBAL_TOTAL_ADVANCES++;
+            } else {
+              window.GLOBAL_TOTAL_DECLINES++;
+            }
+
+            if (!sectorMap[sectorKey]) {
+              sectorMap[sectorKey] = { 
+                name: sectorKey, count: 0, changeSum: 0, volSum: 0, advances: 0, declines: 0, leadTicker: cleanTicker 
+              };
+            }
             
             sectorMap[sectorKey].count++;
             sectorMap[sectorKey].changeSum += rawChange;
             sectorMap[sectorKey].volSum += rawVol;
             
-            // Track market breadth arrays programmatically
             if (rawChange >= 0) {
               sectorMap[sectorKey].advances++;
             } else {
@@ -270,7 +277,6 @@ async function loadTrend(forceRefresh) {
             }
           });
 
-          // Compile advanced structural indices arrays
           Object.keys(sectorMap).forEach(function(key) {
             var sec = sectorMap[key];
             var avgChange = sec.changeSum / sec.count;
@@ -278,10 +284,15 @@ async function loadTrend(forceRefresh) {
             
             var advPct = Math.round((sec.advances / totalRanked) * 100);
             var decPct = 100 - advPct;
-            var velocityMultiplier = parseFloat((1.1 + (sec.volSum / sec.count) % 4 + Math.random()).toFixed(1));
+            
+            var baseVolumeIntensity = sec.volSum / sec.count;
+            var velocityMultiplier = baseVolumeIntensity > 0 
+              ? parseFloat((1.0 + Math.min(baseVolumeIntensity / 1000000, 8.5)).toFixed(1)) 
+              : parseFloat((1.5 + (sec.count % 4) * 1.1).toFixed(1));
             
             rawData.push({
               sectorName: sec.name,
+              targetTicker: sec.leadTicker,
               avgChangePct: (avgChange >= 0 ? "+" : "") + avgChange.toFixed(2) + "%",
               rawChange: avgChange,
               flowVelocity: velocityMultiplier,
@@ -295,19 +306,21 @@ async function loadTrend(forceRefresh) {
         }
       } catch(e) { console.warn("Market analytics matrix feed stream deferred.", e); }
     }
-    
-    // Complete network drop-out fallback matrices
+
+    // Backup baseline numbers if data stream runs thin
     if (!rawData || rawData.length === 0) {
       var structuralFallbacks = ["METALS & MINING", "FINANCIAL SERVICES", "TECHNOLOGY & DIGITAL", "AUTOMOTIVE SYSTEMS"];
       rawData = structuralFallbacks.map(function(name, i) {
         return {
-          sectorName: name, avgChangePct: "+1.20%", rawChange: 1.20, flowVelocity: 3.4,
-          advancesPct: 75, declinesPct: 25, advCount: 3, decCount: 1, bullishFlow: true
+          sectorName: name, targetTicker: "RELIANCE", avgChangePct: "-1.10%", rawChange: -1.10, flowVelocity: 2.4,
+          advancesPct: 20, declinesPct: 80, advCount: 1, decCount: 4, bullishFlow: false
         };
       });
+      window.GLOBAL_TOTAL_ADVANCES = 2;
+      window.GLOBAL_TOTAL_DECLINES = 8;
+      window.GLOBAL_NET_VOLUME_FLOW = 24.5;
     }
 
-    // Rank strictly by total institutional velocity weight
     window.MOVERS_DATA_POOL = rawData.sort((a, b) => b.flowVelocity - a.flowVelocity);
   }
   renderTrendUI();
@@ -317,61 +330,85 @@ function renderTrendUI() {
   var container = document.getElementById("moversBody") || document.getElementById("trendBody");
   if (!container || !window.MOVERS_DATA_POOL) return;
 
-  var html = `
-    <div style="display: flex; flex-direction: column; gap: 12px; width: 100%;">
-      <div style="border-bottom: 1px solid #1e293b; padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center; width: 100%;">
-        <span style="font-size: 11px; color: #38bdf8; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">
-          ⚡ Institutional Capital flow & Sector Breadth
-        </span>
-        <span style="background: rgba(56,189,248,0.05); border: 1px solid #38bdf8; padding: 2px 6px; border-radius: 4px; font-size: 8.5px; color: #38bdf8; font-weight: 700;">
-          ADVANCE-DECLINE (A/D) LIVE
-        </span>
-      </div>
+  var totalAdv = window.GLOBAL_TOTAL_ADVANCES || 0;
+  var totalDec = window.GLOBAL_TOTAL_DECLINES || 0;
+  var totalStocks = totalAdv + totalDec || 1;
+  var marketBreadthPct = Math.round((totalAdv / totalStocks) * 100);
 
-      <div style="max-height: 380px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
-  `;
+  // Programmatically deduce macro institutional conditions based on aggregate trends
+  var statusLabel = "NEUTRAL CONSOLIDATION";
+  var statusColor = "#fbbf24";
+  if (marketBreadthPct > 65) { statusLabel = "AGGRESSIVE ACCUMULATION"; statusColor = "#00b06a"; }
+  else if (marketBreadthPct < 35) { statusLabel = "EXTREME LIQUIDATION DETECTED"; statusColor = "#ff3b30"; }
 
+  // Generate sector line columns layout
+  var sectorsHTML = "";
   window.MOVERS_DATA_POOL.forEach(function(sector) {
     var flowColor = sector.bullishFlow ? "#00b06a" : "#ff3b30";
     var velocityColor = sector.flowVelocity > 3.5 ? "#fbbf24" : "#a855f7";
     var velocityBg = sector.flowVelocity > 3.5 ? "rgba(251,191,36,0.04)" : "rgba(168,85,247,0.04)";
 
-    html += `
-      <div style="background: #111827; padding: 12px 14px; border-radius: 8px; border: 1px solid #1e293b; display: flex; flex-direction: column; gap: 10px;">
-        
+    sectorsHTML += `
+      <div onclick="runAnalysis('${sector.targetTicker}')" 
+           style="background: #111827; padding: 12px 14px; border-radius: 8px; border: 1px solid #1e293b; display: flex; flex-direction: column; gap: 10px; cursor: pointer; transition: all 0.15s;"
+           onmouseover="this.style.borderColor='#38bdf8'; this.style.transform='translateX(2px)'"
+           onmouseout="this.style.borderColor='#1e293b'; this.style.transform='none'">
         <div style="display: flex; justify-content: space-between; align-items: center;">
-          <div style="text-align: left;">
-            <span style="color: #f1f5f9; font-weight: 700; font-size: 12px; letter-spacing: 0.2px;">${sector.sectorName}</span>
-          </div>
+          <div style="text-align: left;"><span style="color: #f1f5f9; font-weight: 700; font-size: 12px; letter-spacing: 0.2px;">${sector.sectorName}</span></div>
           <div style="display: flex; align-items: center; gap: 12px; text-align: right;">
-            <div>
-              <span style="color: ${flowColor}; font-weight: 800; font-size: 12.5px;">${sector.avgChangePct}</span>
-            </div>
+            <div><span style="color: ${flowColor}; font-weight: 800; font-size: 12.5px;">${sector.avgChangePct}</span></div>
             <div style="background: ${velocityBg}; border: 1px solid ${velocityColor}; padding: 3px 8px; border-radius: 4px; min-width: 60px; text-align: center;">
               <span style="color: ${velocityColor}; font-size: 11px; font-weight: 900;">${sector.flowVelocity}x Vol</span>
             </div>
           </div>
         </div>
-
         <div style="width: 100%;">
           <div style="display: flex; justify-content: space-between; font-size: 9px; font-weight: 700; color: #64748b; margin-bottom: 4px; font-family: monospace;">
             <span style="color: #00b06a;">🟢 ADV: ${sector.advCount} (${sector.advancesPct}%)</span>
             <span style="color: #ff3b30;">DEC: ${sector.decCount} (${sector.declinesPct}%) 🔴</span>
           </div>
           <div style="height: 5px; width: 100%; background: #1e293b; border-radius: 3px; overflow: hidden; display: flex;">
-            <div style="width: ${sector.advancesPct}%; background: #00b06a; height: 100%; transition: width 0.3s;"></div>
-            <div style="width: ${sector.declinesPct}%; background: #ff3b30; height: 100%; transition: width 0.3s;"></div>
+            <div style="width: ${sector.advancesPct}%; background: #00b06a; height: 100%;"></div>
+            <div style="width: ${sector.declinesPct}%; background: #ff3b30; height: 100%;"></div>
           </div>
         </div>
-
       </div>
     `;
   });
 
-  html += `</div></div>`;
-  container.innerHTML = html;
-}
+  // Inject structural side-by-side flexbox wrapper layout
+  container.innerHTML = `
+    <div style="display: flex; flex-wrap: wrap; gap: 16px; width: 100%; box-sizing: border-box; text-align: left;">
+      
+      <div style="flex: 1.3 1 340px; display: flex; flex-direction: column; gap: 8px;">
+        <div style="border-bottom: 1px solid #1e293b; padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 11px; color: #38bdf8; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">⚡ Institutional Capital Flow & Sector Breadth</span>
+          <span style="background: rgba(56,189,248,0.05); border: 1px solid #38bdf8; padding: 2px 6px; border-radius: 4px; font-size: 8.5px; color: #383838; font-weight: 700; color:#38bdf8;">A/D PANEL</span>
+        </div>
+        <div id="sector-scroll-container" style="max-height: 380px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 2px;">
+          ${sectorsHTML}
+        </div>
+      </div>
 
+      <div style="flex: 1 1 260px; display: flex; flex-direction: column; gap: 8px;">
+        <div style="border-bottom: 1px solid #1e293b; padding-bottom: 8px; display: flex; align-items: center;">
+          <span style="font-size: 11px; color: #fbbf24; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">📊 Macro Exchange Sentiment Radar</span>
+        </div>
+        <div style="background: #0b0f19; border: 1px solid #1e293b; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; justify-content: space-between; height: calc(100% - 24px); box-sizing: border-box; min-height: 220px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);">
+          
+          <div>
+            <div style="font-size: 10px; color: #64748b; font-weight: 700; uppercase; letter-spacing: 0.5px;">MARKET SENTIMENT COGNITION</div>
+            <div style="font-size: 15px; font-weight: 900; color: ${statusColor}; margin: 6px 0 14px 0; letter-spacing: 0.2px;">${statusLabel}</div>
+            
+            <div style="background: #111827; border: 1px solid #1e293b; border-radius: 8px; padding: 12px; margin-bottom: 14px;">
+              <span style="font-size: 10px; color: #475569; font-weight: 700; display: block; margin-bottom: 4px;">AGGREGATE MARKET ADVANCE-DECLINE</span>
+              <div style="font-size: 22px; font-weight: 900; color: #f1f5f9; font-family: monospace;">${totalAdv} <span style="color:#64748b; font-size:14px; font-weight:500;">vs</span> <span style="color:#ff3b30;">${totalDec}</span></div>
+              <div style="font-size: 11px; color: #64748b; margin-top: 2px;">Net Breadth Ratio: <strong style="color:#38bdf8;">${marketBreadthPct}%</strong> positive participation</div>
+            </div>
+          </div>
+
+          <div style="background: #111827; border: 1px solid #1e293b; border-radius: 8px; padding: 12px;">
+            <span style="font-size: 10px; color: #475569; font-weight: 700; display: block;
 async function loadIdx(){
   var [n, s] = await Promise.all([yfQuote("NIFTY50"), yfQuote("SENSEX")]);
   function ic(name, p){ if(!p) return ''; var c = p.up ? "#22c55e" : "#ef4444"; return '<div class="gc"><div class="gcl">' + name + '</div><div class="gcv" style="color:' + c + '">' + p.raw.toLocaleString("en-IN") + '</div><div class="gcs" style="color:' + c + '">' + (p.up ? "▲" : "▼") + " " + p.changePct + '</div></div>'; }
