@@ -15,30 +15,86 @@ function skels(h, n){ return Array(n).fill('<div class="skel" style="height:' + 
 function ldng(msg){ return '<div style="text-align:center;padding:40px 20px"><div class="spnr"></div><div style="font-size:13px;color:#64748b">' + msg + '</div></div>'; }
 
 function drawNativeChart(closes, volumes, up) {
-  if(!closes || closes.length < 2) return '';
+  if (!closes || closes.length < 2) return '';
+  
   var w = 500, h = 140;
   var minP = Math.min(...closes), maxP = Math.max(...closes);
   var rngP = maxP - minP || 1;
-  var pricePts = closes.map((p, i) => {
+  
+  // Calculate pristine coordinates for the price vectors mapping curve
+  var coordinates = closes.map((p, i) => {
     var x = (i / (closes.length - 1)) * w;
     var y = h - ((p - minP) / rngP) * (h - 45) - 30;
-    return x.toFixed(1) + ',' + y.toFixed(1);
-  }).join(' ');
+    return { x: x, y: y, price: p };
+  });
 
+  var pricePts = coordinates.map(pt => pt.x.toFixed(1) + ',' + pt.y.toFixed(1)).join(' ');
+
+  // Create smooth closed path data strings for background gradient fills
+  var areaPathData = `M 0,${h} L ` + pricePts + ` L ${w},${h} Z`;
+
+  // Dynamic color configuration adjustments
+  var color = up ? "#22c55e" : "#ef4444";
+  var gradId = "grad_" + Math.random().toString(36).substr(2, 9);
+
+  // Generate background volume profile layout segments
   var volumeHTML = "";
-  if(volumes && volumes.length > 0) {
-    var maxV = Math.max(...volumes) || 1; var barCount = closes.length; var barWidth = (w / barCount) * 0.75;
+  if (volumes && volumes.length > 0) {
+    var maxV = Math.max(...volumes) || 1;
+    var barCount = closes.length;
+    var barWidth = (w / barCount) * 0.70;
+    
     volumes.forEach((v, idx) => {
-      var barHeight = (v / maxV) * 25; var x = (idx / (barCount - 1)) * w - (barWidth / 2); var y = h - barHeight - 5;
-      volumeHTML += '<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + barWidth.toFixed(1) + '" height="' + barHeight.toFixed(1) + '" fill="#1e293b" opacity="0.65"/>';
+      var barHeight = (v / maxV) * 28;
+      var x = (idx / (barCount - 1)) * w - (barWidth / 2);
+      var y = h - barHeight - 4;
+      volumeHTML += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barWidth.toFixed(1)}" height="${barHeight.toFixed(1)}" fill="#1e293b" opacity="0.45" rx="1"/>`;
     });
   }
-  var color = up ? "#22c55e" : "#ef4444";
-  return '<div style="margin:14px 0;background:#0b0f19;border:1px solid #1c2a45;border-radius:12px;padding:12px;">' +
-    '<div style="font-size:10px;color:#475569;margin-bottom:8px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;display:flex;justify-content:space-between;"><span>Intraday Technical Waveform</span><span>Dual-Axis Vol/Price</span></div>' +
-    '<div style="height:120px;width:100%;"><svg viewBox="0 0 500 140" style="width:100%; height:100%; overflow:visible;">' +
-    volumeHTML + '<polyline points="' + pricePts + '" fill="none" stroke="' + color + '" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>' +
-    '</svg></div></div>'; 
+
+  // Draw clean horizontal validation grid line traces
+  var midY = (h - 35) / 2 + 10;
+  var gridLinesHTML = `
+    <line x1="0" y1="20" x2="${w}" y2="20" stroke="#1e293b" stroke-width="1" stroke-dasharray="3,3" />
+    <line x1="0" y1="${midY.toFixed(1)}" x2="${w}" y2="${midY.toFixed(1)}" stroke="#111827" stroke-width="1" stroke-dasharray="4,4" />
+    <line x1="0" y1="${(h - 15).toFixed(1)}" x2="${w}" y2="${(h - 15).toFixed(1)}" stroke="#1e293b" stroke-width="1" stroke-dasharray="3,3" />
+  `;
+
+  return `
+    <div style="margin: 14px 0; background: #0b0f19; border: 1px solid #1e293b; border-radius: 12px; padding: 14px 16px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);">
+      <div style="font-size: 10px; color: #64748b; margin-bottom: 12px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; display: flex; justify-content: space-between; align-items: center;">
+        <span style="display: flex; align-items: center; gap: 6px;">
+          <span style="width: 6px; height: 6px; background: ${color}; border-radius: 50%; display: inline-block;"></span>
+          Intraday Technical Waveform
+        </span>
+        <span style="background: #111827; padding: 2px 6px; border-radius: 4px; border: 1px solid #1e293b; font-size: 9px; color: #94a3b8;">DUAL-AXIS VOL/PRICE</span>
+      </div>
+      
+      <div style="height: 130px; width: 100%; position: relative; overflow: visible;">
+        <svg viewBox="0 0 500 140" preserveAspectRatio="none" style="width: 100%; height: 100%; overflow: visible; display: block;">
+          <defs>
+            <linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="${color}" stop-opacity="0.18"/>
+              <stop offset="100%" stop-color="${color}" stop-opacity="0.00"/>
+            </linearGradient>
+          </defs>
+          
+          ${gridLinesHTML}
+          
+          ${volumeHTML}
+          
+          <path d="${areaPathData}" fill="url(#${gradId})" />
+          
+          <polyline points="${pricePts}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+          
+          <circle cx="${coordinates[coordinates.length - 1].x.toFixed(1)}" cy="${coordinates[coordinates.length - 1].y.toFixed(1)}" r="4" fill="${color}" stroke="#0b0f19" stroke-width="1.5" />
+        </svg>
+        
+        <div style="position: absolute; left: 4px; top: -4px; font-size: 9px; color: #475569; font-weight: 700;">H: ₹${maxP.toLocaleString('en-IN', { maximumFractionDigits: 1 })}</div>
+        <div style="position: absolute; left: 4px; bottom: 4px; font-size: 9px; color: #475569; font-weight: 700;">L: ₹${minP.toLocaleString('en-IN', { maximumFractionDigits: 1 })}</div>
+      </div>
+    </div>
+  `;
 }
 
 function switchTab(name){
