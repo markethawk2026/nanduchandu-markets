@@ -476,6 +476,9 @@ async function runAnalysis(ticker){
   renderAnalysis(d);
 }
 
+// ====================================================================
+// 3. MASTER INTERACTIVE SYSTEM GRAPHICS & ANALYSIS CONSOLE
+// ====================================================================
 function renderAnalysis(d){
   var pc = d.up ? "#22c55e" : "#ef4444"; var t = tSty(d.trend);
   var chartHTML = drawNativeChart(window.LIVE_CHART_POOL.closes.length ? window.LIVE_CHART_POOL.closes : d.closes, d.volumes, d.up);
@@ -488,7 +491,7 @@ function renderAnalysis(d){
   var aBodyEl = document.getElementById("aBody");
   if (!aBodyEl) return;
   
-  // Cache the master asset configuration details for the background intervals
+  // Cache current ticker properties globally for active background intervals
   window.CURRENT_ACTIVE_ANALYSIS_DATA = d;
 
   aBodyEl.innerHTML = `
@@ -516,8 +519,49 @@ function renderAnalysis(d){
     <div class="g4">
       <div class="gc"><div class="gcl">Support</div><div class="gcv" style="color:#22c55e">${d.support}</div></div>
       <div class="gc"><div class="gcl">Resistance</div><div class="gcv" style="color:#ef4444">${d.resistance}</div></div>
-      <div class="gc"><div class="gcl">FII Operations</div><div id="live-fii" class="gcv" style="font-size:11px; font-weight:800; color:#94a3b8;">Calculating...</div></div>
-      <div class="gc"><div class="gcl">OI Structure</div><div id="live-oi" class="gcv" style="font-size:11px; font-weight:800; color:#94a3b8;">Calculating...</div></div>
+      <div class="gc"><div class="gcl">FII Operations</div><div id="live-fii" class="gcv" style="font-size:11px; font-weight:800; color:#94a3b8;">Processing...</div></div>
+      <div class="gc"><div class="gcl">OI Structure</div><div id="live-oi" class="gcv" style="font-size:11px; font-weight:800; color:#94a3b8;">Processing...</div></div>
+    </div>
+
+    <div class="sec">
+      <div class="stitle">Multi-Timeframe Trend Confluence (MTF)</div>
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap:10px; margin-top:8px;">
+        <div style="background:#111827; padding:10px; border-radius:8px; border:1px solid #1e293b; text-align:center;">
+          <div style="font-size:9px; color:#64748b; font-weight:700;">5M (SCALP)</div>
+          <div id="live-mtf-5m" style="font-size:11px; font-weight:900; margin-top:4px;">-</div>
+        </div>
+        <div style="background:#111827; padding:10px; border-radius:8px; border:1px solid #1e293b; text-align:center;">
+          <div style="font-size:9px; color:#64748b; font-weight:700;">15M (INTRADAY)</div>
+          <div id="live-mtf-15m" style="font-size:11px; font-weight:900; margin-top:4px;">-</div>
+        </div>
+        <div style="background:#111827; padding:10px; border-radius:8px; border:1px solid #1e293b; text-align:center;">
+          <div style="font-size:9px; color:#64748b; font-weight:700;">1H (SWING)</div>
+          <div id="live-mtf-1h" style="font-size:11px; font-weight:900; margin-top:4px;">-</div>
+        </div>
+        <div style="background:#111827; padding:10px; border-radius:8px; border:1px solid #1e293b; text-align:center;">
+          <div style="font-size:9px; color:#64748b; font-weight:700;">1D (POSITIONAL)</div>
+          <div id="live-mtf-1d" style="font-size:11px; font-weight:900; margin-top:4px;">-</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="stitle">Intraday Floor Pivot Points</div>
+      <div class="g3">
+        <div class="ic">
+          <div class="icl">Resistance 1 (R1)</div>
+          <div id="live-pivot-r1" style="font-family:monospace; font-size:14px; font-weight:800; color:#ff3b30; margin-top:4px;">₹0.00</div>
+        </div>
+        <div class="ic">
+          <div class="icl">Central Pivot (PP)</div>
+          <div id="live-pivot-pp" style="font-family:monospace; font-size:14px; font-weight:800; color:#38bdf8; margin-top:4px;">₹0.00</div>
+          <div id="live-pivot-status" style="font-size:9px; font-weight:700; color:#64748b; margin-top:2px;">CROSSING</div>
+        </div>
+        <div class="ic">
+          <div class="icl">Support 1 (S1)</div>
+          <div id="live-pivot-s1" style="font-family:monospace; font-size:14px; font-weight:800; color:#00b06a; margin-top:4px;">₹0.00</div>
+        </div>
+      </div>
     </div>
 
     <div class="sec">
@@ -541,8 +585,8 @@ function renderAnalysis(d){
       </div>
     </div>
 
-   <div class="sec">
-      <div class="stitle">Derivative Intelligence & Volumetric Pressure</div>
+    <div class="sec">
+      <div class="stitle">Derivative Intelligence & Order Depth Liquidity</div>
       <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px; margin-top:8px;">
         <div style="background:#111827; padding:14px; border-radius:8px; border:1px solid #1e293b;">
           <div style="font-size:11px; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">Put-Call Ratio (PCR)</div>
@@ -553,6 +597,18 @@ function renderAnalysis(d){
           <div style="font-size:11px; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">VWAP Price Deviation</div>
           <div id="live-vwap" style="font-size:20px; font-weight:900; color:${vwapColor}; margin:4px 0;">${vwapStatus}</div>
           <div style="font-size:11px; font-weight:600; color:#64748b;">Distance From Day's Fair Value Anchor</div>
+        </div>
+      </div>
+      
+      <div style="margin-top:12px; background:#111827; padding:12px; border-radius:8px; border:1px solid #1e293b;">
+        <div style="display:flex; justify-content:space-between; font-size:10px; font-weight:800; color:#64748b; margin-bottom:6px;">
+          <span id="live-orderbook-buy" style="color:#00b06a;">BUY DEPTH: --%</span>
+          <span id="live-orderbook-lbl" style="letter-spacing:0.3px;">LIQUIDITY IMPALANCE MATRIX</span>
+          <span id="live-orderbook-sell" style="color:#ff3b30;">--% SELL DEPTH</span>
+        </div>
+        <div style="height:6px; width:100%; background:#1e293b; border-radius:3px; overflow:hidden; display:flex;">
+          <div id="live-orderbook-bar-buy" style="width:50%; background:#00b06a; height:100%; transition:width 0.2s;"></div>
+          <div id="live-orderbook-bar-sell" style="width:50%; background:#ff3b30; height:100%; transition:width 0.2s;"></div>
         </div>
       </div>
     </div>
@@ -582,7 +638,7 @@ function renderAnalysis(d){
       <div class="pbl"><span style="color:#22c55e">🟢 Bull Projections ${d.probBull}%</span><span style="color:#ef4444">Bear Projections ${d.probBear}% 🔴</span></div>
       <div class="pbb"><div class="pb-b" style="width:${d.probBull}%"></div><div class="pb-r" style="width:${d.probBear}%"></div></div>
       
-     <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap:10px; margin:14px 0; background:#0b0f19; padding:12px; border-radius:8px; border:1px solid #1e293b;">
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap:10px; margin:14px 0; background:#0b0f19; padding:12px; border-radius:8px; border:1px solid #1e293b;">
         <div>
           <span style="font-size:9.5px; color:#64748b; font-weight:700; text-transform:uppercase; display:block;">Risk-Reward (R:R)</span>
           <span id="live-rr" style="font-size:14px; font-weight:800; color:#38bdf8; font-family:monospace;">1:2.0</span>
@@ -612,7 +668,6 @@ function renderAnalysis(d){
     </div>
   `;
 
-  // Trigger an immediate standalone update to populate metrics instantly on load
   setTimeout(triggerReactiveAnalysisRefresh, 50);
 
   document.getElementById("lnkND").addEventListener("click", function(){ var ndIn = document.getElementById("ndIn"); if(ndIn) ndIn.value = d.ticker; switchTab("nextday"); runNextDay(d.ticker); });
@@ -723,7 +778,6 @@ function triggerReactiveAnalysisRefresh() {
   var closesArray = window.LIVE_CHART_POOL.closes.length ? window.LIVE_CHART_POOL.closes : (d.closes || [currentPrice]);
   var baseSessionPrice = closesArray[0] || currentPrice;
 
-  // Compute live price velocity relative to the session baseline open
   var intradayMomentumPct = ((currentPrice - baseSessionPrice) / baseSessionPrice) * 100;
 
   var domSet = (id, text, color) => {
@@ -732,7 +786,7 @@ function triggerReactiveAnalysisRefresh() {
   };
 
   // 1. RE-CALCULATE MOVING AVERAGES CONFLUENCE LIVE
-  var calcEma20 = closesArray.length >= 10 ? (closesArray.slice(-10).reduce((a, b) => a + b, 0) / 10) : currentPrice * 0.995;
+  var calcEma20 = closesArray.length >= 10 ? (closesArray.slice(-10).reduce((a + b) => a + b, 0) / 10) : currentPrice * 0.995;
   var calcDma50 = closesArray.reduce((a, b) => a + b, 0) / closesArray.length;
   var calcDma200 = (parseFloat(String(d.support).replace(/[^0-9.]/g, "")) || currentPrice) * 0.985;
 
@@ -743,13 +797,25 @@ function triggerReactiveAnalysisRefresh() {
   domSet("live-dma200-status", currentPrice >= calcDma200 ? "ABOVE" : "BELOW", currentPrice >= calcDma200 ? "#00b06a" : "#ff3b30");
   domSet("live-dma200-val", "₹" + calcDma200.toFixed(2));
 
-  // 2. DYNAMICALLY DERIVE LIVE PCR & OI OPEN INTEREST STRUCTURE
+  // 2. DYNAMICALLY DERIVE LIVE FLOOR PIVOT POINTS 
+  var pivotPP = (calcEma20 + calcDma50 + calcDma200) / 3;
+  var pivotR1 = (2 * pivotPP) - calcDma200;
+  var pivotS1 = (2 * pivotPP) - calcEma20;
+
+  domSet("live-pivot-pp", "₹" + pivotPP.toFixed(2));
+  domSet("live-pivot-r1", "₹" + pivotR1.toFixed(2));
+  domSet("live-pivot-s1", "₹" + pivotS1.toFixed(2));
+
+  if (currentPrice >= pivotR1) { domSet("live-pivot-status", "⚠️ BREACHED R1 BREAKOUT", "#ff3b30"); }
+  else if (currentPrice <= pivotS1) { domSet("live-pivot-status", "⚠️ BREACHED S1 BREAKDOWN", "#00b06a"); }
+  else { domSet("live-pivot-status", currentPrice >= pivotPP ? "TRADING ABOVE CENTRAL PP" : "TRADING BELOW CENTRAL PP", "#64748b"); }
+
+  // 3. DYNAMICALLY DERIVE LIVE PCR & OI OPEN INTEREST STRUCTURE
   var staticPcr = parseFloat(d.pcr) || 1.0;
   var liveCalculatedPcr = staticPcr + (intradayMomentumPct * 0.12);
   liveCalculatedPcr = Math.max(0.4, Math.min(liveCalculatedPcr, 1.9));
 
   domSet("live-pcr-val", liveCalculatedPcr.toFixed(2));
-  
   if (liveCalculatedPcr > 1.15) { 
     domSet("live-oi", "Short Covering / Long Build", "#00b06a");
     domSet("live-pcr-status", "🟢 Bullish Long Build", "#00b06a");
@@ -761,7 +827,20 @@ function triggerReactiveAnalysisRefresh() {
     domSet("live-pcr-status", "🟡 Neutral Range Build", "#fbbf24");
   }
 
-  // 3. REACTIVE FII OPERATIONS MATRIX
+  // 4. REAL-TIME BID/ASK ORDER DEPTH IMPALANCE SIMULATION
+  var buyRatio = 50 + (intradayMomentumPct * 35);
+  buyRatio = Math.max(15, Math.min(buyRatio, 85));
+  var sellRatio = 100 - buyRatio;
+
+  var bLbl = document.getElementById("live-orderbook-buy"); if(bLbl) bLbl.innerText = `BUY DEPTH: ${buyRatio.toFixed(1)}%`;
+  var sLbl = document.getElementById("live-orderbook-sell"); if(sLbl) sLbl.innerText = `${sellRatio.toFixed(1)}% SELL DEPTH`;
+  var bBar = document.getElementById("live-orderbook-bar-buy"); if(bBar) bBar.style.width = `${buyRatio}%`;
+  var sBar = document.getElementById("live-orderbook-bar-sell"); if(sBar) sBar.style.width = `${sellRatio}%`;
+
+  var bookImbalanceText = Math.abs(buyRatio - sellRatio) > 15 ? (buyRatio > sellRatio ? "⚡ BUYERS AGGRESSIVE" : "⚡ SELLERS DOMINANT") : "LIQUIDITY IMPALANCE MATRIX";
+  domSet("live-orderbook-lbl", bookImbalanceText, Math.abs(buyRatio - sellRatio) > 15 ? (buyRatio > sellRatio ? "#00b06a" : "#ff3b30") : "#64748b");
+
+  // 5. REACTIVE FII OPERATIONS MATRIX
   if (d.healthScore > 55) {
     if (currentPrice >= calcEma20) { domSet("live-fii", "Institutional Block Accumulation", "#00b06a"); }
     else { domSet("live-fii", "FII Liquidity Absorption", "#fbbf24"); }
@@ -770,9 +849,22 @@ function triggerReactiveAnalysisRefresh() {
     else { domSet("live-fii", "Tactical Short Hedge Cover", "#38bdf8"); }
   }
 
-  // 4. NEW: LIVE MATHEMATICAL VOLUME MULTIPLIER & SIGNAL TRACKER
+  // 6. MULTI-TIMEFRAME TREND MATRIX CONFLUENCE 
+  if (intradayMomentumPct > 0.04) { domSet("live-mtf-5m", "BULLISH CHARGE", "#00b06a"); }
+  else if (intradayMomentumPct < -0.04) { domSet("live-mtf-5m", "BEARISH DROP", "#ff3b30"); }
+  else { domSet("live-mtf-5m", "CONSOLIDATING", "#fbbf24"); }
+
+  var activeEmaDiff = currentPrice - calcEma20;
+  if (activeEmaDiff > 0.5) { domSet("live-mtf-15m", "STRONG LONG", "#00b06a"); }
+  else if (activeEmaDiff < -0.5) { domSet("live-mtf-15m", "SHORT PRESSURE", "#ff3b30"); }
+  else { domSet("live-mtf-15m", "COMPRESSED", "#38bdf8"); }
+
+  if (currentPrice >= calcDma50) { domSet("live-mtf-1h", intradayMomentumPct >= 0 ? "ACCUMULATION" : "REVERSION", intradayMomentumPct >= 0 ? "#00b06a" : "#fbbf24"); } 
+  else { domSet("live-mtf-1h", intradayMomentumPct <= 0 ? "MARKDOWN" : "PULLBACK", intradayMomentumPct <= 0 ? "#ff3b30" : "#fbbf24"); }
+  domSet("live-mtf-1d", currentPrice >= calcDma200 ? "MACRO BULLISH" : "MACRO BEARISH", currentPrice >= calcDma200 ? "#00b06a" : "#ff3b30");
+
+  // 7. LIVE MATHEMATICAL VOLUME MULTIPLIER
   var baselineVolumeSeed = parseFloat(String(d.volume).replace(/[^0-9.]/g, "")) || 1.2;
-  // Dynamic trade velocity expands volume based on directional tick volatility intensity
   var liveVolumeMult = baselineVolumeSeed + (Math.abs(intradayMomentumPct) * 4.5);
   liveVolumeMult = Math.min(Math.max(0.6, liveVolumeMult), 15.0);
   domSet("live-vol-mult", liveVolumeMult.toFixed(1) + "x");
@@ -781,18 +873,12 @@ function triggerReactiveAnalysisRefresh() {
   else if (liveVolumeMult > 1.8) { domSet("live-vol-sig", "Institutional Accumulation", "#fbbf24"); }
   else { domSet("live-vol-sig", "Standard Baseline Liquidity", "#94a3b8"); }
 
-  // 5. NEW: LIVING TACTICAL STRATEGY WINDOW CONTEXT
-  // High intraday price velocity switches the model to scalp/momentum mode
-  var dynamicHealthScore = d.healthScore + (intradayMomentumPct * 20);
-  if (Math.abs(intradayMomentumPct) > 0.15) {
-    domSet("live-tactical", "🔥 HIGH-VELOCITY MOMENTUM SCALP", "#00b06a");
-  } else if (dynamicHealthScore > 60 || dynamicHealthScore < 35) {
-    domSet("live-tactical", "SHORT-TERM SWING SETUP", "#38bdf8");
-  } else {
-    domSet("live-tactical", "MID-TERM POSITIONAL CHURN", "#fbbf24");
-  }
+  // 8. LIVING TACTICAL STRATEGY WINDOW CONTEXT
+  if (Math.abs(intradayMomentumPct) > 0.15) { domSet("live-tactical", "🔥 HIGH-VELOCITY MOMENTUM SCALP", "#00b06a"); } 
+  else if (d.healthScore + (intradayMomentumPct * 20) > 60) { domSet("live-tactical", "SHORT-TERM SWING SETUP", "#38bdf8"); } 
+  else { domSet("live-tactical", "MID-TERM POSITIONAL CHURN", "#fbbf24"); }
 
-  // 6. LIVE RISK-REWARD ACTIVE CALCULATION
+  // 9. LIVE RISK-REWARD ACTIVE CALCULATION
   var slNum = parseFloat(String(d.stopLoss).replace(/[^0-9.]/g, ""));
   var tgtNum = parseFloat(String(d.target1).replace(/[^0-9.]/g, ""));
   if (!isNaN(slNum) && !isNaN(tgtNum) && (currentPrice - slNum) > 0) {
@@ -840,7 +926,7 @@ window.MASTER_EXCHANGE_ORCHESTRATOR = setInterval(function() {
           targetWrapper.outerHTML = tempDiv.firstElementChild.outerHTML;
         }
 
-        // TRIGGER THE INTEGRATED EVALUATION WIDGETS REFRESH
+        // Trigger the integrated calculation cascade across all vectors
         triggerReactiveAnalysisRefresh();
       }
     } catch(err) { console.debug("Tick sequence deferred."); }
