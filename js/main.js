@@ -1211,6 +1211,8 @@ window.MASTER_EXCHANGE_ORCHESTRATOR = setInterval(function () {
   // 15-Second Fetch API Safety Boundaries Refresh
   if (!window.LAST_IDX_REFRESH_TS || Date.now() - window.LAST_IDX_REFRESH_TS > 15000) {
     loadIdx().catch(() => {});
+    loadTrend().catch(() => {});
+    loadTopMovers().catch(() => {}); // Periodically pulls fresh movers data metrics
     window.LAST_IDX_REFRESH_TS = Date.now();
   }
 }, 2000);
