@@ -785,8 +785,10 @@ function triggerReactiveAnalysisRefresh() {
     if (el) { el.innerText = text; if(color) el.style.color = color; }
   };
 
-  // 1. RE-CALCULATE MOVING AVERAGES CONFLUENCE LIVE
-  var calcEma20 = closesArray.length >= 10 ? (closesArray.slice(-10).reduce((a + b) => a + b, 0) / 10) : currentPrice * 0.995;
+  // 1. RE-CALCULATE MOVING AVERAGES CONFLUENCE LIVE (Fixed the comma syntax here)
+  var calcEma20 = closesArray.length >= 10 
+    ? (closesArray.slice(-10).reduce((a, b) => a + b, 0) / 10) 
+    : currentPrice * 0.995;
   var calcDma50 = closesArray.reduce((a, b) => a + b, 0) / closesArray.length;
   var calcDma200 = (parseFloat(String(d.support).replace(/[^0-9.]/g, "")) || currentPrice) * 0.985;
 
