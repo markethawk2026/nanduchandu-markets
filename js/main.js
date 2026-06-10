@@ -226,7 +226,7 @@ async function loadNews(targetTicker) {
     container.innerHTML = layoutHtml;
 
     if (window.ACTIVE_NEWS_POOL.length > 0) window.viewArticleDetail(window.ACTIVE_NEWS_POOL[0].id);
-  } catch (renderError) {
+  } catch (Error) {
     container.innerHTML = `<div style="color:#64748b; padding:24px; text-align:center;">News feed loaded successfully.</div>`;
   }
 }
@@ -342,10 +342,30 @@ function renderTrendUI() {
   var container = document.getElementById("moversBody") || document.getElementById("trendBody");
   if (!container || !window.MOVERS_DATA_POOL) return;
 
-  var totalAdv = window.GLOBAL_TOTAL_ADVANCES || 0;
-  var totalDec = window.GLOBAL_TOTAL_DECLINES || 0;
-  var totalStocks = totalAdv + totalDec || 1;
-  var marketBreadthPct = Math.round((totalAdv / totalStocks) * 100);
+  // Calculate dynamic needle transform coordinates using pure page data states
+var totalAdv = window.GLOBAL_TOTAL_ADVANCES || 0;
+var totalDec = window.GLOBAL_TOTAL_DECLINES || 0;
+var totalStocks = totalAdv + totalDec || 1;
+var marketBreadthPct = Math.round((totalAdv / totalStocks) * 100);
+
+// Deduce color matching vectors completely relative to real-time math
+var radialColor = marketBreadthPct > 65 ? "#00b06a" : marketBreadthPct < 35 ? "#ff3b30" : "#fbbf24";
+var rotationAngle = (marketBreadthPct * 1.8) - 90; // Converts percentage to precise dial radius degrees [-90 to 90]
+
+var radarGaugeHTML = `
+  <div style="background:#111827; border:1px solid #1e293b; padding:14px; border-radius:8px; display:flex; align-items:center; gap:12px; margin-bottom:12px;">
+    <svg width="60" height="35" viewBox="0 0 100 50" style="overflow:visible;">
+      <path d="M 10,50 A 40,40 0 0,1 90,50" fill="none" stroke="#1e293b" stroke-width="12" stroke-linecap="round"/>
+      <path d="M 10,50 A 40,40 0 0,1 90,50" fill="none" stroke="${radialColor}" stroke-width="12" stroke-linecap="round" stroke-dasharray="126" stroke-dashoffset="${126 - (126 * marketBreadthPct / 100)}"/>
+      <circle cx="50" cy="50" r="4" fill="#f8fafc"/>
+      <line x1="50" y1="50" x2="50" y2="15" stroke="#f8fafc" stroke-width="2.5" stroke-linecap="round" transform="rotate(${rotationAngle} 50 50)"/>
+    </svg>
+    <div>
+      <span style="font-size:9px; color:#64748b; font-weight:700; display:block; text-transform:uppercase;">BREADTH INTENSITY</span>
+      <span style="font-size:16px; font-weight:900; color:${radialColor}; font-family:monospace;">${marketBreadthPct}% Bulls</span>
+    </div>
+  </div>
+`;
 
   // Programmatically deduce macro institutional conditions based on aggregate trends
   var statusLabel = "NEUTRAL CONSOLIDATION";
@@ -935,6 +955,50 @@ function renderAnalysis(d){
   document.getElementById("lnkTM").addEventListener("click", function(){ var tmIn = document.getElementById("tmIn"); if(tmIn) tmIn.value = d.ticker; switchTab("term"); runOutlook(d.ticker); });
 }
 
+// ====================================================================
+// ADVANCED VISUAL ENHANCEMENT: PURE DYNAMIC TICKER TAPE
+// ====================================================================
+function renderLiveTickerTape() {
+  var container = document.getElementById("ticker-tape-zone");
+  if (!container) {
+    // Find header layout wrapper to mount tape bar instantly above navigation row
+    var topNav = document.querySelector(".nav") || document.body.firstChild;
+    container = document.createElement("div");
+    container.id = "ticker-tape-zone";
+    container.style.cssText = "width:100%; overflow:hidden; background:#070a13; border-bottom:1px solid #1e293b; padding:6px 0; display:flex; position:relative;";
+    if (topNav && topNav.parentNode) {
+      topNav.parentNode.insertBefore(container, topNav);
+    } else {
+      return;
+    }
+  }
+
+  if (!window.LIVE_NIFTY_PRICE || !window.LIVE_SENSEX_PRICE) return;
+
+  var nColor = window.LIVE_NIFTY_UP ? "#00b06a" : "#ff3b30";
+  var sColor = window.LIVE_SENSEX_UP ? "#00b06a" : "#ff3b30";
+  var nArrow = window.LIVE_NIFTY_UP ? "▲" : "▼";
+  var sArrow = window.LIVE_SENSEX_UP ? "▲" : "▼";
+
+  var tickerContent = `
+    <div class="marquee-scroller" style="display:flex; gap:40px; white-space:nowrap; animation: marqueeScroll 25s linear infinite; font-family:monospace; font-size:11px; font-weight:700;">
+      <span style="color:#64748b;">NIFTY 50: <span style="color:${nColor}">${window.LIVE_NIFTY_PRICE.toFixed(2)} (${nArrow} ${window.LIVE_NIFTY_CHG})</span></span>
+      <span style="color:#64748b;">SENSEX: <span style="color:${sColor}">${window.LIVE_SENSEX_PRICE.toFixed(2)} (${sArrow} ${window.LIVE_SENSEX_CHG})</span></span>
+      <span style="color:#38bdf8; letter-spacing:0.5px;">⚡ CORE EXCHANGE NET EXECUTIONS ACTIVE</span>
+      <span style="color:#64748b;">NIFTY 50: <span style="color:${nColor}">${window.LIVE_NIFTY_PRICE.toFixed(2)} (${nArrow} ${window.LIVE_NIFTY_CHG})</span></span>
+      <span style="color:#64748b;">SENSEX: <span style="color:${sColor}">${window.LIVE_SENSEX_PRICE.toFixed(2)} (${sArrow} ${window.LIVE_SENSEX_CHG})</span></span>
+      <span style="color:#fbbf24; letter-spacing:0.5px;">🎯 REAL-TIME DATA STREAM CONFLUENCE</span>
+    </div>
+    <style>
+      @keyframes marqueeScroll {
+        0% { transform: translateX(0%); }
+        100% { transform: translateX(-50%); }
+      }
+    </style>
+  `;
+  container.innerHTML = tickerContent + tickerContent; // Duplicated to create seamless loop wrapping
+}
+
 async function runNextDay(ticker){
   ticker = ticker.toUpperCase().trim(); var body = document.getElementById("ndBody"); if (body) body.innerHTML = ldng("Calculating forecasting parameters...");
   var p = await yfQuote(ticker); if(!p) return;
@@ -1215,6 +1279,10 @@ window.MASTER_EXCHANGE_ORCHESTRATOR = setInterval(function () {
     loadTopMovers().catch(() => {}); // Periodically pulls fresh movers data metrics
     window.LAST_IDX_REFRESH_TS = Date.now();
   }
+  
+  // Always keep scrolling tickers completely synchronized with state alterations
+  try { renderLiveTickerTape(); } catch(e) {}
+  
 }, 2000);
 
 bootDashboard();
