@@ -267,7 +267,6 @@ async function loadTrend(forceRefresh) {
           window.GLOBAL_NET_VOLUME_FLOW += rawVol;
           if (rawChange >= 0) { window.GLOBAL_TOTAL_ADVANCES++; } else { window.GLOBAL_TOTAL_DECLINES++; }
 
-          // Harvest individual stock components from the live payload stream
           if (cleanTicker && !["NIFTY", "SENSEX", "NSE", "BSE", "INDEX"].some(b => cleanTicker.includes(b))) {
             individualStocks.push({
               name: cleanTicker,
@@ -308,9 +307,8 @@ async function loadTrend(forceRefresh) {
   window.MOVERS_DATA_POOL = rawData.sort((a, b) => b.flowVelocity - a.flowVelocity);
   window.DYNAMIC_RAW_STOCKS_POOL = individualStocks;
   
-  // Paint both layouts independently to avoid grid column collision
   renderTrendUI();
-  renderTopMoversIsolated();
+  renderTopMoversInOriginalContainer();
 }
 
 function renderTrendUI() {
@@ -398,14 +396,18 @@ function renderTrendUI() {
 }
 
 // ====================================================================
-// ANCHOR-ISOLATED TOP MOVERS GENERATOR (0% HARDCODED & SAFE FROM OVERLAPS)
+// TARGET ORIGINAL HOUSING ZONE (CLEANS DUPES & MOUNTS IN PLACE)
 // ====================================================================
-function renderTopMoversIsolated() {
+function renderTopMoversInOriginalContainer() {
   if (!window.DYNAMIC_RAW_STOCKS_POOL || window.DYNAMIC_RAW_STOCKS_POOL.length === 0) return;
+
+  // 1. House-clean the legacy dynamic container row to clean any duplicate visual headers
+  var legacyDuplicate = document.getElementById("stable-top-movers-row");
+  if (legacyDuplicate) { legacyDuplicate.remove(); }
 
   var sortedStocks = [...window.DYNAMIC_RAW_STOCKS_POOL].sort((a, b) => b.changePct - a.changePct).slice(0, 6);
   
-  var moversHTML = `<div class="movers-container" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:10px; margin:12px 0 0 0; width:100%;">`;
+  var moversHTML = `<div class="movers-container" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:10px; margin:14px 0 0 0; width:100%;">`;
   sortedStocks.forEach(s => {
     var color = s.up ? "#00b06a" : "#ff3b30";
     var arrow = s.up ? "▲" : "▼";
@@ -421,27 +423,23 @@ function renderTopMoversIsolated() {
   });
   moversHTML += `</div>`;
 
-  // Safely mount into an independent container right above the main sector columns block
-  var mainTrendContainer = document.getElementById("moversBody") || document.getElementById("trendBody");
-  if (mainTrendContainer) {
-    var isolatedRow = document.getElementById("stable-top-movers-row");
-    if (!isolatedRow) {
-      isolatedRow = document.createElement("div");
-      isolatedRow.id = "stable-top-movers-row";
-      isolatedRow.className = "sec";
-      isolatedRow.style.cssText = "margin-bottom:24px; text-align:left; width:100%; box-sizing:border-box;";
-      mainTrendContainer.parentNode.insertBefore(isolatedRow, mainTrendContainer);
+  // 2. Map directly inside the native HTML structure container block on the page layout
+  var originalSectionElement = null;
+  document.querySelectorAll(".sec").forEach(el => {
+    if (el.textContent.includes("NSE TOP MOVERS") && el.textContent.includes("LIVE")) {
+      originalSectionElement = el;
     }
-    isolatedRow.innerHTML = `
-      <div style="border-bottom:1px solid #1e293b; padding-bottom:8px; display:flex; justify-content:space-between; align-items:center; width:100%;">
-        <span style="font-size:11px; color:#00b06a; font-weight:800; letter-spacing:0.5px; text-transform:uppercase;">🔥 NSE TOP MOVERS</span>
-        <span style="background:rgba(0,176,106,0.05); border:1px solid #00b06a; padding:2px 6px; border-radius:4px; font-size:8.5px; color:#00b06a; font-weight:700;">LIVE MARKET</span>
-      </div>
-      ${moversHTML}
-    `;
+  });
+
+  if (originalSectionElement) {
+    var existingGridContainer = originalSectionElement.querySelector(".movers-container");
+    if (existingGridContainer) {
+      existingGridContainer.outerHTML = moversHTML;
+    } else {
+      originalSectionElement.insertAdjacentHTML('beforeend', moversHTML);
+    }
   }
 }
-
 
 // ====================================================================
 // 1. EXCHANGE GATEWAY HELPER: REAL-TIME WEEKDAY CLOCK VALVE
