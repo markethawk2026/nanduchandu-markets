@@ -579,78 +579,58 @@ function processIndexPayload(quotes) {
 }
 
 // ====================================================================
-// 6. PURE LIVE NSE TOP MOVERS FETCH ENGINE (100% DYNAMIC - NO HARDCODING)
+// 6. PURE LIVE NSE TOP MOVERS FETCH ENGINE (100% DATA-DRIVEN & MEMORY-SAFE)
 // ====================================================================
 async function loadTopMovers() {
   if (typeof yfMovers !== "function") return;
-  var timestamp = Date.now();
   
   try {
-    // 1. Extract tickers dynamically from your system's live movers data stream
+    // Read directly from the active local market stream data array
     var apiData = await yfMovers();
     if (!Array.isArray(apiData) || apiData.length === 0) return;
 
-    var discoveredTickers = [];
+    var stockDataArr = [];
+    
     apiData.forEach(function(item) {
-      var sym = String(item.ticker || item.symbol || "").trim().toUpperCase();
-      if (sym && !["NIFTY", "SENSEX", "NSE", "BSE"].some(black => sym.includes(black))) {
-        var cleanSym = sym.endsWith(".NS") ? sym : sym + ".NS";
-        if (!discoveredTickers.includes(cleanSym)) discoveredTickers.push(cleanSym);
+      var sym = String(item.ticker || item.symbol || "").replace(".NS", "").replace(".BO", "").toUpperCase().trim();
+      
+      // Handle flexible field naming definitions natively present in your stream objects
+      var rawChange = item.rawChangePct || parseFloat(String(item.changePct || "0").replace(/[^0-9.-]/g, "")) || 0;
+      var rawPrice = parseFloat(String(item.price || item.regularMarketPrice || "0").replace(/[^0-9.]/g, "")) || 0;
+
+      // Filter out broad index trackers to ensure only hot equities populate the list
+      if (sym && !["NIFTY", "SENSEX", "NSE", "BSE", "INDEX"].some(black => sym.includes(black))) {
+        stockDataArr.push({
+          name: sym,
+          price: rawPrice,
+          changePct: rawChange,
+          up: rawChange >= 0
+        });
       }
     });
 
-    var operationalPool = discoveredTickers.slice(0, 6);
-    if (operationalPool.length === 0) return;
-
-    var stockDataArr = [];
-
-    // 2. Fetch fresh real-time internet prices for the discovered equities pool
-    await Promise.all(operationalPool.map(async (ticker) => {
-      try {
-        var url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1d&_=${timestamp}`;
-        var response = await fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`);
-        var json = await response.json();
-
-        if (json && json.chart && json.chart.result && json.chart.result[0]) {
-          var meta = json.chart.result[0].meta;
-          var price = parseFloat(meta.regularMarketPrice);
-          var prevClose = parseFloat(meta.chartPreviousClose);
-
-          if (!isNaN(price) && !isNaN(prevClose)) {
-            var changePct = ((price - prevClose) / prevClose) * 100;
-            stockDataArr.push({
-              name: ticker.replace(".NS", ""),
-              price: price,
-              changePct: changePct,
-              up: changePct >= 0
-            });
-          }
-        }
-      } catch (e) {
-        console.debug("Dynamic stock item skipped.");
-      }
-    }));
-
     if (stockDataArr.length === 0) return;
 
-    // Sort components purely by market momentum performance arrays
-    var sortedMovers = stockDataArr.sort((a, b) => b.changePct - a.changePct);
+    // Sort by momentum and slice the top 6 performers cleanly
+    var sortedMovers = stockDataArr.sort((a, b) => b.changePct - a.changePct).slice(0, 6);
     
-    var moversHTML = `<div class="movers-container" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:10px; margin:12px 0; width:100%;">`;
+    var moversHTML = `<div class="movers-container" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(120px, 1fr)); gap:10px; margin:12px 0; width:100%;">`;
     sortedMovers.forEach(s => {
       var color = s.up ? "#00b06a" : "#ff3b30";
       var arrow = s.up ? "▲" : "▼";
+      var formattedPrice = s.price > 0 ? "₹" + s.price.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "₹—";
+      
       moversHTML += `
         <div class="mover-card" onclick="runAnalysis('${s.name}')" style="background:#111827; border:1px solid #1e293b; padding:10px; border-radius:8px; text-align:left; cursor:pointer; transition:all 0.15s;" onmouseover="this.style.borderColor='#38bdf8'" onmouseout="this.style.borderColor='#1e293b'">
           <div style="font-size:11px; color:#94a3b8; font-weight:700;">${s.name}</div>
-          <div style="font-size:14px; font-family:monospace; font-weight:800; color:#f8fafc; margin-top:2px;">₹${s.price.toFixed(2)}</div>
+          <div style="font-size:14px; font-family:monospace; font-weight:800; color:#f8fafc; margin-top:2px;">${formattedPrice}</div>
           <div style="font-size:11px; color:${color}; font-weight:600; margin-top:2px;">${arrow} ${s.changePct.toFixed(2)}%</div>
         </div>
       `;
     });
     moversHTML += `</div>`;
 
-    // 3. Resilient Interceptor: Inject below header element safely (ignoring children count limitations)
+    // Resilient Layout Target Interceptor
     var allElements = document.querySelectorAll("div, h3, span, p, strong, h2");
     for (var i = 0; i < allElements.length; i++) {
       var el = allElements[i];
@@ -661,15 +641,15 @@ async function loadTopMovers() {
           if (existingGrid) {
             existingGrid.outerHTML = moversHTML;
           } else {
-            var headerWrapper = el.closest('div') || el;
-            headerWrapper.insertAdjacentHTML('afterend', moversHTML);
+            // Drop it cleanly into place regardless of child node structures
+            el.insertAdjacentHTML('afterend', moversHTML);
           }
           break;
         }
       }
     }
   } catch (err) {
-    console.debug("Top movers data sync deferred.");
+    console.debug("Movers layout render loop deferred safely.");
   }
 }
 
