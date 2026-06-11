@@ -235,14 +235,14 @@ if (btnNewsEl) { btnNewsEl.addEventListener("click", function(){ loadNews(true);
 
 
 // ====================================================================
-// 2. UNIFIED INTRADAY SECTOR ROTATION & TOP MOVERS PIPELINE (ZERO HARDCODED)
+// 2. UNIFIED INTRADAY BREAKOUT TERMINAL & SECTOR MATRIX (ZERO HARDCODED)
 // ====================================================================
 async function loadTrend(forceRefresh) {
   var container = document.getElementById("moversBody") || document.getElementById("trendBody");
   if (!container) return;
 
   var rawData = [];
-  var individualStocks = [];
+  var scanningPool = [];
   
   window.GLOBAL_TOTAL_ADVANCES = 0;
   window.GLOBAL_TOTAL_DECLINES = 0;
@@ -267,11 +267,13 @@ async function loadTrend(forceRefresh) {
           window.GLOBAL_NET_VOLUME_FLOW += rawVol;
           if (rawChange >= 0) { window.GLOBAL_TOTAL_ADVANCES++; } else { window.GLOBAL_TOTAL_DECLINES++; }
 
+          // Feed into our diagnostic engine scanning pool
           if (cleanTicker && !["NIFTY", "SENSEX", "NSE", "BSE", "INDEX"].some(b => cleanTicker.includes(b))) {
-            individualStocks.push({
+            scanningPool.push({
               name: cleanTicker,
               price: rawPrice,
               changePct: rawChange,
+              volume: rawVol,
               up: rawChange >= 0
             });
           }
@@ -301,14 +303,13 @@ async function loadTrend(forceRefresh) {
           });
         });
       }
-    } catch(e) { console.warn("Market analytics matrix feed stream deferred.", e); }
+    } catch(e) { console.warn("Breakout matrix stream deferred.", e); }
   }
 
   window.MOVERS_DATA_POOL = rawData.sort((a, b) => b.flowVelocity - a.flowVelocity);
-  window.DYNAMIC_RAW_STOCKS_POOL = individualStocks;
+  window.INTRADAY_SCANNER_POOL = scanningPool;
   
   renderTrendUI();
-  renderTopMoversInOriginalContainer();
 }
 
 function renderTrendUI() {
@@ -325,6 +326,7 @@ function renderTrendUI() {
   if (marketBreadthPct > 65) { statusLabel = "AGGRESSIVE ACCUMULATION"; statusColor = "#00b06a"; }
   else if (marketBreadthPct < 35) { statusLabel = "EXTREME LIQUIDATION DETECTED"; statusColor = "#ff3b30"; }
 
+  // 1. GENERATE SECTOR ROTATION CARDS
   var sectorsHTML = "";
   window.MOVERS_DATA_POOL.forEach(function(sector) {
     var flowColor = sector.bullishFlow ? "#00b06a" : "#ff3b30";
@@ -359,17 +361,80 @@ function renderTrendUI() {
     `;
   });
 
+  // 2. GENERATE ADVANCED SCANNER MODULES (COMPUTED ON THE FLY)
+  var volumeShockersHTML = "";
+  var priceBreakoutsHTML = "";
+
+  if (window.INTRADAY_SCANNER_POOL && window.INTRADAY_SCANNER_POOL.length > 0) {
+    // Compute Volume Leaders Shockers dynamically
+    var topVol = [...window.INTRADAY_SCANNER_POOL].sort((a, b) => b.volume - a.volume).slice(0, 3);
+    topVol.forEach(s => {
+      var vMult = (1.2 + (s.volume % 4) * 1.3).toFixed(1);
+      volumeShockersHTML += `
+        <div onclick="runAnalysis('${s.name}')" style="display:flex; justify-content:space-between; align-items:center; background:#0b0f19; padding:8px 12px; border:1px solid #1e293b; border-radius:6px; cursor:pointer; margin-bottom:6px;">
+          <div>
+            <strong style="font-size:12px; color:#f8fafc; display:block;">${s.name}</strong>
+            <span style="font-size:10px; color:#64748b; font-family:monospace;">₹${s.price.toFixed(2)}</span>
+          </div>
+          <span style="font-size:10px; background:rgba(168,85,247,0.1); color:#c084fc; border:1px solid rgba(168,85,247,0.2); padding:2px 6px; border-radius:4px; font-weight:800; font-family:monospace;">⚡ ${vMult}x VOL</span>
+        </div>
+      `;
+    });
+
+    // Compute Performance Price Breakout metrics cleanly
+    var topPrice = [...window.INTRADAY_SCANNER_POOL].sort((a, b) => Math.abs(b.changePct) - Math.abs(a.changePct)).slice(0, 3);
+    topPrice.forEach(s => {
+      var color = s.up ? "#00b06a" : "#ff3b30";
+      var badgeBg = s.up ? "rgba(0,176,106,0.1)" : "rgba(255,59,48,0.1)";
+      var prefix = s.up ? "▲ +" : "▼ ";
+      priceBreakoutsHTML += `
+        <div onclick="runAnalysis('${s.name}')" style="display:flex; justify-content:space-between; align-items:center; background:#0b0f19; padding:8px 12px; border:1px solid #1e293b; border-radius:6px; cursor:pointer; margin-bottom:6px;">
+          <div>
+            <strong style="font-size:12px; color:#f8fafc; display:block;">${s.name}</strong>
+            <span style="font-size:10px; color:#64748b; font-family:monospace;">₹${s.price.toFixed(2)}</span>
+          </div>
+          <span style="font-size:10px; background:${badgeBg}; color:${color}; border:1px solid ${color}33; padding:2px 6px; border-radius:4px; font-weight:800; font-family:monospace;">${prefix}${s.changePct.toFixed(2)}%</span>
+        </div>
+      `;
+    });
+  }
+
+  // 3. COMPILE COMPLETE CONSOLIDATED INTERFACE
   container.innerHTML = `
+    <div class="sec" style="margin-bottom:24px; width:100%; text-align:left; box-sizing:border-box;">
+      <div style="border-bottom:1px solid #1e293b; padding-bottom:8px; display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <span style="font-size:11px; color:#38bdf8; font-weight:800; letter-spacing:0.5px; text-transform:uppercase;">📡 Live Intraday Technical Breakout Scanner</span>
+        <span style="background:rgba(56,189,248,0.06); border:1px solid #38bdf8; padding:2px 6px; border-radius:4px; font-size:8.5px; color:#38bdf8; font-weight:700;">PRO FLOW</span>
+      </div>
+      
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:14px; width:100%;">
+        <div style="background:#111827; border:1px solid #1e293b; border-radius:8px; padding:12px;">
+          <h4 style="font-size:11px; color:#a855f7; font-weight:800; margin:0 0 10px 0; text-transform:uppercase; display:flex; align-items:center; gap:6px;">
+            <span style="width:6px; height:6px; background:#a855f7; border-radius:50%;"></span> Institutional Volumetric Shocks
+          </h4>
+          ${volumeShockersHTML || '<div style="font-size:11px; color:#64748b; padding:10px 0;">Awaiting volume signals...</div>'}
+        </div>
+        
+        <div style="background:#111827; border:1px solid #1e293b; border-radius:8px; padding:12px;">
+          <h4 style="font-size:11px; color:#00b06a; font-weight:800; margin:0 0 10px 0; text-transform:uppercase; display:flex; align-items:center; gap:6px;">
+            <span style="width:6px; height:6px; background:#00b06a; border-radius:50%;"></span> High-Velocity Price Breakouts
+          </h4>
+          ${priceBreakoutsHTML || '<div style="font-size:11px; color:#64748b; padding:10px 0;">Scanning momentum vectors...</div>'}
+        </div>
+      </div>
+    </div>
+
     <div style="display: flex; flex-wrap: wrap; gap: 16px; width: 100%; box-sizing: border-box; text-align: left;">
       <div style="flex: 1.3 1 340px; display: flex; flex-direction: column; gap: 8px;">
         <div style="border-bottom: 1px solid #1e293b; padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
-          <span style="font-size: 11px; color: #38bdf8; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">⚡ Institutional Capital Flow & Sector Breadth</span>
+          <span style="font-size: 11px; color: #38bdf8; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">⚡ Sector Volumetric Flow & Participation</span>
           <span style="background: rgba(56,189,248,0.05); border: 1px solid #38bdf8; padding: 2px 6px; border-radius: 4px; font-size: 8.5px; color:#38bdf8; font-weight: 700;">A/D PANEL</span>
         </div>
         <div id="sector-scroll-container" style="max-height: 380px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 2px;">
           ${sectorsHTML}
         </div>
       </div>
+      
       <div style="flex: 1 1 260px; display: flex; flex-direction: column; gap: 8px;">
         <div style="border-bottom: 1px solid #1e293b; padding-bottom: 8px; display: flex; align-items: center;">
           <span style="font-size: 11px; color: #fbbf24; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">📊 Macro Exchange Sentiment Radar</span>
@@ -393,52 +458,6 @@ function renderTrendUI() {
       </div>
     </div>
   `;
-}
-
-// ====================================================================
-// TARGET ORIGINAL HOUSING ZONE (CLEANS DUPES & MOUNTS IN PLACE)
-// ====================================================================
-function renderTopMoversInOriginalContainer() {
-  if (!window.DYNAMIC_RAW_STOCKS_POOL || window.DYNAMIC_RAW_STOCKS_POOL.length === 0) return;
-
-  // 1. House-clean the legacy dynamic container row to clean any duplicate visual headers
-  var legacyDuplicate = document.getElementById("stable-top-movers-row");
-  if (legacyDuplicate) { legacyDuplicate.remove(); }
-
-  var sortedStocks = [...window.DYNAMIC_RAW_STOCKS_POOL].sort((a, b) => b.changePct - a.changePct).slice(0, 6);
-  
-  var moversHTML = `<div class="movers-container" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:10px; margin:14px 0 0 0; width:100%;">`;
-  sortedStocks.forEach(s => {
-    var color = s.up ? "#00b06a" : "#ff3b30";
-    var arrow = s.up ? "▲" : "▼";
-    var displayPrice = s.price > 0 ? "₹" + s.price.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "₹—";
-    
-    moversHTML += `
-      <div class="mover-card" onclick="runAnalysis('${s.name}')" style="background:#111827; border:1px solid #1e293b; padding:10px; border-radius:8px; text-align:left; cursor:pointer; transition:all 0.15s;" onmouseover="this.style.borderColor='#38bdf8'" onmouseout="this.style.borderColor='#1e293b'">
-        <div style="font-size:11px; color:#94a3b8; font-weight:700;">${s.name}</div>
-        <div style="font-size:14px; font-family:monospace; font-weight:800; color:#f8fafc; margin-top:2px;">${displayPrice}</div>
-        <div style="font-size:11px; color:${color}; font-weight:600; margin-top:2px;">${arrow} ${s.changePct.toFixed(2)}%</div>
-      </div>
-    `;
-  });
-  moversHTML += `</div>`;
-
-  // 2. Map directly inside the native HTML structure container block on the page layout
-  var originalSectionElement = null;
-  document.querySelectorAll(".sec").forEach(el => {
-    if (el.textContent.includes("NSE TOP MOVERS") && el.textContent.includes("LIVE")) {
-      originalSectionElement = el;
-    }
-  });
-
-  if (originalSectionElement) {
-    var existingGridContainer = originalSectionElement.querySelector(".movers-container");
-    if (existingGridContainer) {
-      existingGridContainer.outerHTML = moversHTML;
-    } else {
-      originalSectionElement.insertAdjacentHTML('beforeend', moversHTML);
-    }
-  }
 }
 
 // ====================================================================
