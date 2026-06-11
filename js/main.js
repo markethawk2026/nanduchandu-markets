@@ -234,7 +234,7 @@ var btnNewsEl = document.getElementById("btnNews");
 if (btnNewsEl) { btnNewsEl.addEventListener("click", function(){ loadNews(true); }); }
 
 // ====================================================================
-// 2. UNIFIED 2x2 TERMINAL GRID MATRIX ENGINE (ZERO HARDCODED)
+// 2. UNIFIED 4-QUADRANT TERMINAL DESK MATRIX (ZERO LAYOUT DISRUPTION)
 // ====================================================================
 async function loadTrend(forceRefresh) {
   var container = document.getElementById("moversBody") || document.getElementById("trendBody");
@@ -266,7 +266,6 @@ async function loadTrend(forceRefresh) {
           window.GLOBAL_NET_VOLUME_FLOW += rawVol;
           if (rawChange >= 0) { window.GLOBAL_TOTAL_ADVANCES++; } else { window.GLOBAL_TOTAL_DECLINES++; }
 
-          // Harvest dynamic equities for the real-time analyzer matrix
           if (cleanTicker && !["NIFTY", "SENSEX", "NSE", "BSE", "INDEX"].some(b => cleanTicker.includes(b))) {
             analyzerPool.push({
               name: cleanTicker,
@@ -302,7 +301,7 @@ async function loadTrend(forceRefresh) {
           });
         });
       }
-    } catch(e) { console.warn("Market metrics calculation deferred safely.", e); }
+    } catch(e) { console.warn("Market analytics calculation deferred safely.", e); }
   }
 
   window.MOVERS_DATA_POOL = rawData.sort((a, b) => b.flowVelocity - a.flowVelocity);
@@ -325,7 +324,7 @@ function renderTrendUI() {
   if (marketBreadthPct > 65) { statusLabel = "AGGRESSIVE ACCUMULATION"; statusColor = "#00b06a"; }
   else if (marketBreadthPct < 35) { statusLabel = "EXTREME LIQUIDATION DETECTED"; statusColor = "#ff3b30"; }
 
-  // 1. GENERATE SECTOR FLOW BARS HTML
+  // 1. GENERATE SECTOR ROTATION MODULE CARDS
   var sectorsHTML = "";
   window.MOVERS_DATA_POOL.forEach(function(sector) {
     var flowColor = sector.bullishFlow ? "#00b06a" : "#ff3b30";
@@ -334,7 +333,7 @@ function renderTrendUI() {
 
     sectorsHTML += `
       <div onclick="runAnalysis('${sector.targetTicker}')" 
-           style="background: #111827; padding: 10px 12px; border-radius: 8px; border: 1px solid #1e293b; display: flex; flex-direction: column; gap: 6px; cursor: pointer; transition: all 0.15s;"
+           style="background: #111827; padding: 10px 12px; border-radius: 8px; border: 1px solid #1e293b; display: flex; flex-direction: column; gap: 6px; cursor: pointer; transition: all 0.15s; margin-bottom: 6px;"
            onmouseover="this.style.borderColor='#38bdf8';" onmouseout="this.style.borderColor='#1e293b';">
         <div style="display: flex; justify-content: space-between; align-items: center;">
           <span style="color: #f1f5f9; font-weight: 700; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px;">${sector.sectorName}</span>
@@ -351,7 +350,7 @@ function renderTrendUI() {
     `;
   });
 
-  // 2. GENERATE STOCK ANALYZER ROWS & LARGE ORDER LOGS HTML
+  // 2. GENERATE REAL-TIME STOCK ANALYZER ROWS & LARGE ORDERS LOG
   var analyzerRowsHTML = "";
   var blockDealsHTML = "";
 
@@ -384,7 +383,6 @@ function renderTrendUI() {
       `;
     });
 
-    // Generate matching block values for quadrant alignment
     var sampleDeals = [...poolCopy].slice(0, 3);
     sampleDeals.forEach((s, idx) => {
       var tradeType = idx % 2 === 0 ? "BUY" : "SELL";
@@ -407,82 +405,74 @@ function renderTrendUI() {
     });
   }
 
-  // 3. MASTER 2X2 SYMMETRICAL DESK INJECTION
+  // 3. MASTER UNIFIED 4-QUADRANT LAYOUT HOUSING (0% HARDCODED)
   container.style.cssText = "width: 100%; max-width: 100%; display: block; box-sizing: border-box; padding: 0; margin: 0;";
   container.innerHTML = `
-    <div style="display: flex; flex-direction: column; gap: 16px; width: 100%; box-sizing: border-box;">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(45%, 1fr)); gap: 16px; width: 100%; box-sizing: border-box; text-align: left;">
       
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; width: 100%; box-sizing: border-box;">
-        
-        <div style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
-          <div style="border-bottom: 1px solid #1e293b; padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
-            <span style="font-size: 11px; color: #38bdf8; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">🔍 Real-Time Technical Analyzer</span>
-            <span style="background: rgba(56,189,248,0.06); border: 1px solid #38bdf8; padding: 2px 6px; border-radius: 4px; font-size: 8.5px; color: #38bdf8; font-weight: 700;">ALGO CORE</span>
-          </div>
-          <div style="background: #0b0f19; border: 1px solid #1e293b; border-radius: 12px; padding: 8px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.2); overflow: hidden;">
-            <table style="width: 100%; border-collapse: collapse; text-align: left;">
-              <thead>
-                <tr style="border-bottom: 1px solid #1e293b;">
-                  <th style="padding: 6px 8px; font-size: 9.5px; color: #64748b; font-weight: 800; text-transform: uppercase;">Asset</th>
-                  <th style="padding: 6px 8px; font-size: 9.5px; color: #64748b; font-weight: 800; text-transform: uppercase; text-align: right;">Price</th>
-                  <th style="padding: 6px 8px; font-size: 9.5px; color: #64748b; font-weight: 800; text-transform: uppercase; text-align: right;">Intraday</th>
-                  <th style="padding: 6px 8px; font-size: 9.5px; color: #64748b; font-weight: 800; text-transform: uppercase; text-align: right;">Signal</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${analyzerRowsHTML || '<tr><td colspan="4" style="font-size:11px; color:#64748b; padding:16px; text-align:center;">Re-indexing active asset performance metrics...</td></tr>'}
-              </tbody>
-            </table>
-          </div>
+      <div style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
+        <div style="border-bottom: 1px solid #1e293b; padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 11px; color: #38bdf8; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">🔍 Real-Time Technical Analyzer</span>
+          <span style="background: rgba(56,189,248,0.06); border: 1px solid #38bdf8; padding: 2px 6px; border-radius: 4px; font-size: 8.5px; color: #38bdf8; font-weight: 700;">ALGO CORE</span>
         </div>
-
-        <div style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
-          <div style="border-bottom: 1px solid #1e293b; padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
-            <span style="font-size: 11px; color: #38bdf8; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">⚡ Sector Volumetric Flow & Breadth</span>
-            <span style="background: rgba(56,189,248,0.05); border: 1px solid #38bdf8; padding: 2px 6px; border-radius: 4px; font-size: 8.5px; color:#38bdf8; font-weight: 700;">A/D PANEL</span>
-          </div>
-          <div id="sector-scroll-container" style="max-height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 2px; width: 100%;">
-            ${sectorsHTML}
-          </div>
+        <div style="background: #0b0f19; border: 1px solid #1e293b; border-radius: 12px; padding: 8px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.2); overflow: hidden; height: 100%;">
+          <table style="width: 100%; border-collapse: collapse; text-align: left;">
+            <thead>
+              <tr style="border-bottom: 1px solid #1e293b;">
+                <th style="padding: 6px 8px; font-size: 9.5px; color: #64748b; font-weight: 800; text-transform: uppercase;">Asset</th>
+                <th style="padding: 6px 8px; font-size: 9.5px; color: #64748b; font-weight: 800; text-transform: uppercase; text-align: right;">Price</th>
+                <th style="padding: 6px 8px; font-size: 9.5px; color: #64748b; font-weight: 800; text-transform: uppercase; text-align: right;">Intraday</th>
+                <th style="padding: 6px 8px; font-size: 9.5px; color: #64748b; font-weight: 800; text-transform: uppercase; text-align: right;">Signal</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${analyzerRowsHTML || '<tr><td colspan="4" style="font-size:11px; color:#64748b; padding:16px; text-align:center;">Processing asset metrics...</td></tr>'}
+            </tbody>
+          </table>
         </div>
-
       </div>
 
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; width: 100%; box-sizing: border-box;">
-        
-        <div style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
-          <div style="border-bottom: 1px solid #1e293b; padding-bottom: 8px; text-align: left;">
-            <span style="font-size: 11px; color: #fbbf24; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">📊 Macro Exchange Sentiment Radar</span>
+      <div style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
+        <div style="border-bottom: 1px solid #1e293b; padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 11px; color: #38bdf8; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">⚡ Sector Volumetric Flow & Breadth</span>
+          <span style="background: rgba(56,189,248,0.05); border: 1px solid #38bdf8; padding: 2px 6px; border-radius: 4px; font-size: 8.5px; color:#38bdf8; font-weight: 700;">A/D PANEL</span>
+        </div>
+        <div id="sector-scroll-container" style="max-height: 235px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 2px; width: 100%;">
+          ${sectorsHTML}
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 8px; width: 100%; margin-top: 10px;">
+        <div style="border-bottom: 1px solid #1e293b; padding-bottom: 8px; text-align: left;">
+          <span style="font-size: 11px; color: #fbbf24; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">📊 Macro Exchange Sentiment Radar</span>
+        </div>
+        <div style="background: #0b0f19; border: 1px solid #1e293b; border-radius: 12px; padding: 14px; display: flex; flex-direction: column; justify-content: space-between; height: 100%; min-height: 200px; box-sizing: border-box; box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);">
+          <div>
+            <div style="font-size: 9px; color: #64748b; font-weight: 700; letter-spacing: 0.5px;">MARKET SENTIMENT COGNITION</div>
+            <div style="font-size: 13px; font-weight: 900; color: ${statusColor}; margin: 4px 0 10px 0; letter-spacing: 0.2px;">${statusLabel}</div>
+            <div style="background: #111827; border: 1px solid #1e293b; border-radius: 8px; padding: 10px; margin-bottom: 10px;">
+              <span style="font-size: 9px; color: #475569; font-weight: 700; display: block; margin-bottom: 2px;">AGGREGATE MARKET ADVANCE-DECLINE</span>
+              <div style="font-size: 18px; font-weight: 900; color: #f1f5f9; font-family: monospace;">${totalAdv} <span style="color:#64748b; font-size:12px; font-weight:500;">vs</span> <span style="color:#ff3b30;">${totalDec}</span></div>
+              <div style="font-size: 10.5px; color: #64748b; margin-top: 1px;">Net Breadth Ratio: <strong style="color:#38bdf8;">${marketBreadthPct}%</strong> Bulls</div>
+            </div>
           </div>
-          <div style="background: #0b0f19; border: 1px solid #1e293b; border-radius: 12px; padding: 14px; display: flex; flex-direction: column; justify-content: space-between; min-height: 200px; box-sizing: border-box; box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);">
-            <div>
-              <div style="font-size: 9px; color: #64748b; font-weight: 700; letter-spacing: 0.5px;">MARKET SENTIMENT COGNITION</div>
-              <div style="font-size: 13px; font-weight: 900; color: ${statusColor}; margin: 4px 0 10px 0; letter-spacing: 0.2px;">${statusLabel}</div>
-              <div style="background: #111827; border: 1px solid #1e293b; border-radius: 8px; padding: 10px; margin-bottom: 10px;">
-                <span style="font-size: 9px; color: #475569; font-weight: 700; display: block; margin-bottom: 2px;">AGGREGATE MARKET ADVANCE-DECLINE</span>
-                <div style="font-size: 18px; font-weight: 900; color: #f1f5f9; font-family: monospace;">${totalAdv} <span style="color:#64748b; font-size:12px; font-weight:500;">vs</span> <span style="color:#ff3b30;">${totalDec}</span></div>
-                <div style="font-size: 10.5px; color: #64748b; margin-top: 1px;">Net Breadth Ratio: <strong style="color:#38bdf8;">${marketBreadthPct}%</strong> Bulls</div>
-              </div>
-            </div>
-            <div style="background: #111827; border: 1px solid #1e293b; border-radius: 8px; padding: 10px;">
-              <span style="font-size: 9px; color: #475569; font-weight: 700; display: block; margin-bottom: 2px;">TOTAL INST. VOLUMETRIC FOOTPRINT</span>
-              <div style="font-size: 14px; font-weight: 800; color: #38bdf8; font-family: monospace;">${(window.GLOBAL_NET_VOLUME_FLOW || 0).toFixed(2)}M Shares</div>
-            </div>
+          <div style="background: #111827; border: 1px solid #1e293b; border-radius: 8px; padding: 10px;">
+            <span style="font-size: 9px; color: #475569; font-weight: 700; display: block; margin-bottom: 2px;">TOTAL INST. VOLUMETRIC FOOTPRINT</span>
+            <div style="font-size: 14px; font-weight: 800; color: #38bdf8; font-family: monospace;">${(window.GLOBAL_NET_VOLUME_FLOW || 0).toFixed(2)}M Shares</div>
           </div>
         </div>
+      </div>
 
-        <div style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
-          <div style="border-bottom: 1px solid #1e293b; padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
-            <span style="font-size: 11px; color: #fbbf24; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">💼 Institutional Block Deal Monitor</span>
-            <span style="background: rgba(251,191,36,0.06); border: 1px solid #fbbf24; padding: 2px 6px; border-radius: 4px; font-size: 8.5px; color: #fbbf24; font-weight: 700;">LIVE LOG</span>
-          </div>
-          <div style="background: #0b0f19; border: 1px solid #1e293b; border-radius: 12px; padding: 12px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.2); min-height: 200px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: flex-start;">
-            <div style="display: flex; flex-direction: column; gap: 4px; width: 100%;">
-              ${blockDealsHTML || '<div style="font-size:11px; color:#64748b; padding:12px 0; text-align:center;">Monitoring block-deal flows...</div>'}
-            </div>
+      <div style="display: flex; flex-direction: column; gap: 8px; width: 100%; margin-top: 10px;">
+        <div style="border-bottom: 1px solid #1e293b; padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 11px; color: #fbbf24; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">💼 Institutional Block Deal Monitor</span>
+          <span style="background: rgba(251,191,36,0.06); border: 1px solid #fbbf24; padding: 2px 6px; border-radius: 4px; font-size: 8.5px; color: #fbbf24; font-weight: 700;">LIVE LOG</span>
+        </div>
+        <div style="background: #0b0f19; border: 1px solid #1e293b; border-radius: 12px; padding: 12px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.2); min-height: 200px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: flex-start; height: 100%;">
+          <div style="display: flex; flex-direction: column; gap: 4px; width: 100%;">
+            ${blockDealsHTML || '<div style="font-size:11px; color:#64748b; padding:12px 0; text-align:center;">Monitoring block-deal flows...</div>'}
           </div>
         </div>
-
       </div>
 
     </div>
