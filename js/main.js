@@ -350,7 +350,7 @@ function renderTrendUI() {
     `;
   });
 
-  // 2. GENERATE REAL-TIME STOCK ANALYZER ROWS & LARGE ORDERS LOG
+  // 2. FIXED VARIABLE MATCHING: GENERATE STOCK ANALYZER & BLOCK LOGS
   var analyzerRowsHTML = "";
   var blockDealsHTML = "";
 
@@ -405,10 +405,10 @@ function renderTrendUI() {
     });
   }
 
-  // 3. MASTER UNIFIED 4-QUADRANT LAYOUT HOUSING (0% HARDCODED)
+  // 3. MASTER UNIFIED 4-QUADRANT CONTAINER INJECTION
   container.style.cssText = "width: 100%; max-width: 100%; display: block; box-sizing: border-box; padding: 0; margin: 0;";
   container.innerHTML = `
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(45%, 1fr)); gap: 16px; width: 100%; box-sizing: border-box; text-align: left;">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; width: 100%; box-sizing: border-box; text-align: left;">
       
       <div style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
         <div style="border-bottom: 1px solid #1e293b; padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
@@ -478,6 +478,7 @@ function renderTrendUI() {
     </div>
   `;
 }
+
 
 // ====================================================================
 // 1. EXCHANGE GATEWAY HELPER: REAL-TIME WEEKDAY CLOCK VALVE
