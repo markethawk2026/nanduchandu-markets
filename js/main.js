@@ -234,11 +234,16 @@ var btnNewsEl = document.getElementById("btnNews");
 if (btnNewsEl) { btnNewsEl.addEventListener("click", function(){ loadNews(true); }); }
 
 // ====================================================================
-// 2. UNIFIED 4-QUADRANT TERMINAL DESK MATRIX (ZERO LAYOUT DISRUPTION)
+// 2. UNIFIED 4-QUADRANT TERMINAL DESK MATRIX (WITH ACTIVE REFRESH FIX)
 // ====================================================================
 async function loadTrend(forceRefresh) {
   var container = document.getElementById("moversBody") || document.getElementById("trendBody");
   if (!container) return;
+
+  // Visual cue: Provide quick feedback that a refresh event has been triggered
+  if (forceRefresh) {
+    container.style.opacity = "0.5";
+  }
 
   var rawData = [];
   var analyzerPool = [];
@@ -249,7 +254,8 @@ async function loadTrend(forceRefresh) {
 
   if (typeof yfMovers === "function") {
     try { 
-      var apiData = await yfMovers(); 
+      // FIX: Passing forceRefresh into yfMovers bypasses internal storage caching
+      var apiData = await yfMovers(forceRefresh); 
       if (Array.isArray(apiData) && apiData.length > 0) {
         var sectorMap = {};
         
@@ -308,6 +314,9 @@ async function loadTrend(forceRefresh) {
   window.INTRADAY_ANALYZER_POOL = analyzerPool;
   
   renderTrendUI();
+  
+  // Restore opacity back to normal after UI finishes rendering
+  container.style.opacity = "1";
 }
 
 function renderTrendUI() {
@@ -405,11 +414,12 @@ function renderTrendUI() {
     });
   }
 
-  // 3. MASTER UNIFIED 4-QUADRANT CONTAINER INJECTION
-  container.style.cssText = "width: 100%; max-width: 100%; display: block; box-sizing: border-box; padding: 0; margin: 0;";
+  
+// 3. MASTER UNIFIED 4-QUADRANT LAYOUT HOUSING (WITH NAVIGATION SAFETY BUFFER)
+  container.style.cssText = "width: 100%; max-width: 100%; display: block; box-sizing: border-box; padding: 0; margin-top: 70px;";
   container.innerHTML = `
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; width: 100%; box-sizing: border-box; text-align: left;">
-      
+    
       <div style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
         <div style="border-bottom: 1px solid #1e293b; padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
           <span style="font-size: 11px; color: #38bdf8; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">🔍 Real-Time Technical Analyzer</span>
