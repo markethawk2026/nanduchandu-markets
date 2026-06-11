@@ -234,14 +234,14 @@ var btnNewsEl = document.getElementById("btnNews");
 if (btnNewsEl) { btnNewsEl.addEventListener("click", function(){ loadNews(true); }); }
 
 // ====================================================================
-// 2. SURGICAL MARKET DATA FEED PIPELINE (100% LAYOUT-SAFE & DYNAMIC)
+// 2. UNIFIED STOCK ANALYZER & INSTITUTIONAL MATRIX (ZERO HARDCODED)
 // ====================================================================
 async function loadTrend(forceRefresh) {
   var container = document.getElementById("moversBody") || document.getElementById("trendBody");
   if (!container) return;
 
   var rawData = [];
-  var individualStocks = [];
+  var analyzerPool = [];
   
   window.GLOBAL_TOTAL_ADVANCES = 0;
   window.GLOBAL_TOTAL_DECLINES = 0;
@@ -266,12 +266,13 @@ async function loadTrend(forceRefresh) {
           window.GLOBAL_NET_VOLUME_FLOW += rawVol;
           if (rawChange >= 0) { window.GLOBAL_TOTAL_ADVANCES++; } else { window.GLOBAL_TOTAL_DECLINES++; }
 
-          // Safely collect clean equities for the top movers row
+          // Harvest valid equities for the Real-Time Technical Analyzer Engine
           if (cleanTicker && !["NIFTY", "SENSEX", "NSE", "BSE", "INDEX"].some(b => cleanTicker.includes(b))) {
-            individualStocks.push({
+            analyzerPool.push({
               name: cleanTicker,
               price: rawPrice,
               changePct: rawChange,
+              volume: rawVol,
               up: rawChange >= 0
             });
           }
@@ -301,15 +302,13 @@ async function loadTrend(forceRefresh) {
           });
         });
       }
-    } catch(e) { console.warn("Stream data mapping deferred safely.", e); }
+    } catch(e) { console.warn("Market analytics matrix feed stream deferred.", e); }
   }
 
   window.MOVERS_DATA_POOL = rawData.sort((a, b) => b.flowVelocity - a.flowVelocity);
-  window.DYNAMIC_RAW_STOCKS_POOL = individualStocks;
+  window.INTRADAY_ANALYZER_POOL = analyzerPool;
   
-  // Execute updates independently to guarantee layout safety
   renderTrendUI();
-  injectTopMoversSurgically();
 }
 
 function renderTrendUI() {
@@ -326,6 +325,7 @@ function renderTrendUI() {
   if (marketBreadthPct > 65) { statusLabel = "AGGRESSIVE ACCUMULATION"; statusColor = "#00b06a"; }
   else if (marketBreadthPct < 35) { statusLabel = "EXTREME LIQUIDATION DETECTED"; statusColor = "#ff3b30"; }
 
+  // 1. GENERATE SECTOR ROTATION SUB-LIST
   var sectorsHTML = "";
   window.MOVERS_DATA_POOL.forEach(function(sector) {
     var flowColor = sector.bullishFlow ? "#00b06a" : "#ff3b30";
@@ -334,116 +334,124 @@ function renderTrendUI() {
 
     sectorsHTML += `
       <div onclick="runAnalysis('${sector.targetTicker}')" 
-           style="background: #111827; padding: 12px 14px; border-radius: 8px; border: 1px solid #1e293b; display: flex; flex-direction: column; gap: 10px; cursor: pointer; transition: all 0.15s;"
-           onmouseover="this.style.borderColor='#38bdf8'; this.style.transform='translateX(2px)'"
-           onmouseout="this.style.borderColor='#1e293b'; this.style.transform='none'">
+           style="background: #111827; padding: 10px 12px; border-radius: 8px; border: 1px solid #1e293b; display: flex; flex-direction: column; gap: 6px; cursor: pointer; transition: all 0.15s;"
+           onmouseover="this.style.borderColor='#38bdf8';" onmouseout="this.style.borderColor='#1e293b';">
         <div style="display: flex; justify-content: space-between; align-items: center;">
-          <div style="text-align: left;"><span style="color: #f1f5f9; font-weight: 700; font-size: 12px; letter-spacing: 0.2px;">${sector.sectorName}</span></div>
-          <div style="display: flex; align-items: center; gap: 12px; text-align: right;">
-            <div><span style="color: ${flowColor}; font-weight: 800; font-size: 12.5px;">${sector.avgChangePct}</span></div>
-            <div style="background: ${velocityBg}; border: 1px solid ${velocityColor}; padding: 3px 8px; border-radius: 4px; min-width: 60px; text-align: center;">
-              <span style="color: ${velocityColor}; font-size: 11px; font-weight: 900;">${sector.flowVelocity}x Vol</span>
-            </div>
+          <span style="color: #f1f5f9; font-weight: 700; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px;">${sector.sectorName}</span>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="color: ${flowColor}; font-weight: 800; font-size: 11px;">${sector.avgChangePct}</span>
+            <span style="color: ${velocityColor}; background: ${velocityBg}; border: 1px solid ${velocityColor}33; padding: 1px 4px; border-radius: 3px; font-size: 9px; font-weight: 700;">${sector.flowVelocity}x</span>
           </div>
         </div>
-        <div style="width: 100%;">
-          <div style="display: flex; justify-content: space-between; font-size: 9px; font-weight: 700; color: #64748b; margin-bottom: 4px; font-family: monospace;">
-            <span style="color: #00b06a;">🟢 ADV: ${sector.advCount} (${sector.advancesPct}%)</span>
-            <span style="color: #ff3b30;">DEC: ${sector.decCount} (${sector.declinesPct}%) 🔴</span>
-          </div>
-          <div style="height: 5px; width: 100%; background: #1e293b; border-radius: 3px; overflow: hidden; display: flex;">
-            <div style="width: ${sector.advancesPct}%; background: #00b06a; height: 100%;"></div>
-            <div style="width: ${sector.declinesPct}%; background: #ff3b30; height: 100%;"></div>
-          </div>
+        <div style="height: 3px; width: 100%; background: #1e293b; border-radius: 2px; overflow: hidden; display: flex;">
+          <div style="width: ${sector.advancesPct}%; background: #00b06a; height: 100%;"></div>
+          <div style="width: ${sector.declinesPct}%; background: #ff3b30; height: 100%;"></div>
         </div>
       </div>
     `;
   });
 
-  // RESTORES YOUR ORIGINAL NATIVE LAYOUT TEMPLATE COMPLETELY
+  // 2. GENERATE REAL-TIME ALGORITHMIC STOCK ANALYZER ROWS
+  var analyzerRowsHTML = "";
+  if (window.INTRADAY_ANALYZER_POOL && window.INTRADAY_SCANNER_POOL.length > 0) {
+    // Sort by absolute momentum intensity (highest change or volatility)
+    var sortedAnalysis = [...window.INTRADAY_ANALYZER_POOL].sort((a, b) => Math.abs(b.changePct) - Math.abs(a.changePct)).slice(0, 5);
+    
+    sortedAnalysis.forEach(s => {
+      var changeColor = s.up ? "#00b06a" : "#ff3b30";
+      var prefix = s.up ? "▲ +" : "▼ ";
+      var priceDisplay = s.price > 0 ? "₹" + s.price.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "₹—";
+      
+      // Compute Technical Verdict commentary programmatically
+      var verdictText = "NEUTRAL DRIFT";
+      var verdictColor = "#94a3b8";
+      var verdictBg = "rgba(148,163,184,0.06)";
+      
+      if (s.changePct >= 2.0) {
+        verdictText = "STRONG BREAKOUT"; verdictColor = "#00b06a"; verdictBg = "rgba(0,176,106,0.08)";
+      } else if (s.changePct > 0 && s.changePct < 2.0) {
+        verdictText = "ACCUMULATION"; verdictColor = "#38bdf8"; verdictBg = "rgba(56,189,248,0.08)";
+      } else if (s.changePct <= -2.0) {
+        verdictText = "SHARP LIQUIDATION"; verdictColor = "#ff3b30"; verdictBg = "rgba(255,59,48,0.08)";
+      } else if (s.changePct < 0 && s.changePct > -2.0) {
+        verdictText = "DISTRIBUTION"; verdictColor = "#fbbf24"; verdictBg = "rgba(251,191,36,0.08)";
+      }
+
+      analyzerRowsHTML += `
+        <tr onclick="runAnalysis('${s.name}')" style="border-bottom: 1px solid #1e293b; cursor: pointer; transition: background 0.12s;" onmouseover="this.style.background='#111827'" onmouseout="this.style.background='transparent'">
+          <td style="padding: 10px 8px; font-weight: 800; color: #f8fafc; font-size: 11.5px;">${s.name}</td>
+          <td style="padding: 10px 8px; font-family: monospace; color: #cbd5e1; font-size: 11.5px; text-align: right;">${priceDisplay}</td>
+          <td style="padding: 10px 8px; font-family: monospace; font-weight: 700; color: ${changeColor}; font-size: 11px; text-align: right;">${prefix}${s.changePct.toFixed(2)}%</td>
+          <td style="padding: 10px 8px; text-align: right;">
+            <span style="background: ${verdictBg}; color: ${verdictColor}; border: 1px solid ${verdictColor}2b; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 800; letter-spacing: 0.3px; display: inline-block;">
+              ${verdictText}
+            </span>
+          </td>
+        </tr>
+      `;
+    });
+  }
+
+  // 3. MASTER INJECTION: DRAW EVERYTHING IN A SYMMETRICAL 3-COLUMN DESK LAYOUT
+  container.style.cssText = "width: 100%; max-width: 100%; display: block; box-sizing: border-box; padding: 0; margin: 0;";
   container.innerHTML = `
-    <div style="display: flex; flex-wrap: wrap; gap: 16px; width: 100%; box-sizing: border-box; text-align: left;">
-      <div style="flex: 1.3 1 340px; display: flex; flex-direction: column; gap: 8px;">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; width: 100%; box-sizing: border-box; text-align: left;">
+      
+      <div style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
         <div style="border-bottom: 1px solid #1e293b; padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
-          <span style="font-size: 11px; color: #38bdf8; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">⚡ Institutional Capital Flow & Sector Breadth</span>
+          <span style="font-size: 11px; color: #38bdf8; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">🔍 Real-Time Technical Analyzer</span>
+          <span style="background: rgba(56,189,248,0.06); border: 1px solid #38bdf8; padding: 2px 6px; border-radius: 4px; font-size: 8.5px; color: #38bdf8; font-weight: 700;">ALGO CORE</span>
+        </div>
+        <div style="background: #0b0f19; border: 1px solid #1e293b; border-radius: 12px; padding: 8px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.2); overflow: hidden;">
+          <table style="width: 100%; border-collapse: collapse; text-align: left;">
+            <thead>
+              <tr style="border-bottom: 1px solid #1e293b;">
+                <th style="padding: 6px 8px; font-size: 9.5px; color: #64748b; font-weight: 800; text-transform: uppercase;">Asset</th>
+                <th style="padding: 6px 8px; font-size: 9.5px; color: #64748b; font-weight: 800; text-transform: uppercase; text-align: right;">Price</th>
+                <th style="padding: 6px 8px; font-size: 9.5px; color: #64748b; font-weight: 800; text-transform: uppercase; text-align: right;">Intraday</th>
+                <th style="padding: 6px 8px; font-size: 9.5px; color: #64748b; font-weight: 800; text-transform: uppercase; text-align: right;">System Signal</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${analyzerRowsHTML || '<tr><td colspan="4" style="font-size:11px; color:#64748b; padding:16px; text-align:center;">Re-indexing active asset performance metrics...</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
+        <div style="border-bottom: 1px solid #1e293b; padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 11px; color: #38bdf8; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">⚡ Sector Volumetric Flow & Breadth</span>
           <span style="background: rgba(56,189,248,0.05); border: 1px solid #38bdf8; padding: 2px 6px; border-radius: 4px; font-size: 8.5px; color:#38bdf8; font-weight: 700;">A/D PANEL</span>
         </div>
-        <div id="sector-scroll-container" style="max-height: 380px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 2px;">
+        <div id="sector-scroll-container" style="max-height: 300px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 2px; width: 100%;">
           ${sectorsHTML}
         </div>
       </div>
-      <div style="flex: 1 1 260px; display: flex; flex-direction: column; gap: 8px;">
-        <div style="border-bottom: 1px solid #1e293b; padding-bottom: 8px; display: flex; align-items: center;">
+      
+      <div style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
+        <div style="border-bottom: 1px solid #1e293b; padding-bottom: 8px; text-align: left;">
           <span style="font-size: 11px; color: #fbbf24; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">📊 Macro Exchange Sentiment Radar</span>
         </div>
-        <div style="background: #0b0f19; border: 1px solid #1e293b; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; justify-content: space-between; height: calc(100% - 24px); box-sizing: border-box; min-height: 220px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);">
+        <div style="background: #0b0f19; border: 1px solid #1e293b; border-radius: 12px; padding: 14px; display: flex; flex-direction: column; justify-content: space-between; height: calc(100% - 20px); min-height: 275px; box-sizing: border-box; box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);">
           <div>
-            <div style="font-size: 10px; color: #64748b; font-weight: 700; letter-spacing: 0.5px;">MARKET SENTIMENT COGNITION</div>
-            <div style="font-size: 15px; font-weight: 900; color: ${statusColor}; margin: 6px 0 14px 0; letter-spacing: 0.2px;">${statusLabel}</div>
-            <div style="background: #111827; border: 1px solid #1e293b; border-radius: 8px; padding: 12px; margin-bottom: 14px;">
-              <span style="font-size: 10px; color: #475569; font-weight: 700; display: block; margin-bottom: 4px;">AGGREGATE MARKET ADVANCE-DECLINE</span>
-              <div style="font-size: 22px; font-weight: 900; color: #f1f5f9; font-family: monospace;">${totalAdv} <span style="color:#64748b; font-size:14px; font-weight:500;">vs</span> <span style="color:#ff3b30;">${totalDec}</span></div>
-              <div style="font-size: 11px; color: #64748b; margin-top: 2px;">Net Breadth Ratio: <strong style="color:#38bdf8;">${marketBreadthPct}%</strong> positive participation</div>
+            <div style="font-size: 9px; color: #64748b; font-weight: 700; letter-spacing: 0.5px;">MARKET SENTIMENT COGNITION</div>
+            <div style="font-size: 13px; font-weight: 900; color: ${statusColor}; margin: 4px 0 10px 0; letter-spacing: 0.2px;">${statusLabel}</div>
+            <div style="background: #111827; border: 1px solid #1e293b; border-radius: 8px; padding: 10px; margin-bottom: 10px;">
+              <span style="font-size: 9px; color: #475569; font-weight: 700; display: block; margin-bottom: 2px;">AGGREGATE MARKET ADVANCE-DECLINE</span>
+              <div style="font-size: 18px; font-weight: 900; color: #f1f5f9; font-family: monospace;">${totalAdv} <span style="color:#64748b; font-size:12px; font-weight:500;">vs</span> <span style="color:#ff3b30;">${totalDec}</span></div>
+              <div style="font-size: 10.5px; color: #64748b; margin-top: 1px;">Net Breadth Ratio: <strong style="color:#38bdf8;">${marketBreadthPct}%</strong> Bulls</div>
             </div>
           </div>
-          <div style="background: #111827; border: 1px solid #1e293b; border-radius: 8px; padding: 12px;">
-            <span style="font-size: 10px; color: #475569; font-weight: 700; display: block; margin-bottom: 4px;">TOTAL INST. VOLUMETRIC FOOTPRINT</span>
-            <div style="font-size: 16px; font-weight: 800; color: #38bdf8; font-family: monospace;">${(window.GLOBAL_NET_VOLUME_FLOW || 0).toFixed(2)}M Shares</div>
-            <p style="font-size: 10.5px; color: #64748b; margin: 4px 0 0 0; line-height: 1.4;">Real-time block deal scan pipeline active across all listed components.</p>
+          <div style="background: #111827; border: 1px solid #1e293b; border-radius: 8px; padding: 10px;">
+            <span style="font-size: 9px; color: #475569; font-weight: 700; display: block; margin-bottom: 2px;">TOTAL INST. VOLUMETRIC FOOTPRINT</span>
+            <div style="font-size: 14px; font-weight: 800; color: #38bdf8; font-family: monospace;">${(window.GLOBAL_NET_VOLUME_FLOW || 0).toFixed(2)}M Shares</div>
           </div>
         </div>
       </div>
+
     </div>
   `;
-}
-
-// ====================================================================
-// SURGICAL INJECTOR: DROPS MOVERS ONLY INTO THE NATIVE BLANK PLACEHOLDER
-// ====================================================================
-function injectTopMoversSurgically() {
-  if (!window.DYNAMIC_RAW_STOCKS_POOL || window.DYNAMIC_RAW_STOCKS_POOL.length === 0) return;
-
-  var sortedStocks = [...window.DYNAMIC_RAW_STOCKS_POOL].sort((a, b) => b.changePct - a.changePct).slice(0, 6);
-  
-  var moversHTML = `<div class="movers-container" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:10px; margin:14px 0; width:100%;">`;
-  sortedStocks.forEach(s => {
-    var color = s.up ? "#00b06a" : "#ff3b30";
-    var arrow = s.up ? "▲" : "▼";
-    var displayPrice = s.price > 0 ? "₹" + s.price.toLocaleString("en-IN", { minimumFractionDigits: 2 }) : "₹—";
-    
-    moversHTML += `
-      <div class="mover-card" onclick="runAnalysis('${s.name}')" style="background:#111827; border:1px solid #1e293b; padding:10px; border-radius:8px; text-align:left; cursor:pointer; transition:all 0.15s;" onmouseover="this.style.borderColor='#38bdf8'" onmouseout="this.style.borderColor='#1e293b'">
-        <div style="font-size:11px; color:#94a3b8; font-weight:700;">${s.name}</div>
-        <div style="font-size:14px; font-family:monospace; font-weight:800; color:#f8fafc; margin-top:2px;">${displayPrice}</div>
-        <div style="font-size:11px; color:${color}; font-weight:600; margin-top:2px;">${arrow} ${s.changePct.toFixed(2)}%</div>
-      </div>
-    `;
-  });
-  moversHTML += `</div>`;
-
-  // Look directly for the native text block element container row
-  var targetHeadingElement = null;
-  var elements = document.querySelectorAll("div, h1, h2, h3, span, p");
-  for (var i = 0; i < elements.length; i++) {
-    var text = elements[i].textContent || "";
-    // Match the exact inner text header row without catching global grid parents
-    if (text.includes("NSE TOP MOVERS") && text.length < 50) {
-      targetHeadingElement = elements[i];
-      break;
-    }
-  }
-
-  if (targetHeadingElement) {
-    // Step out to the wrapper box of the heading row
-    var targetRowWrapper = targetHeadingElement.closest("div") || targetHeadingElement;
-    var currentGrid = targetRowWrapper.parentElement.querySelector(".movers-container");
-    
-    if (currentGrid) {
-      currentGrid.outerHTML = moversHTML;
-    } else {
-      targetRowWrapper.insertAdjacentHTML('afterend', moversHTML);
-    }
-  }
 }
 
 // ====================================================================
