@@ -234,7 +234,7 @@ var btnNewsEl = document.getElementById("btnNews");
 if (btnNewsEl) { btnNewsEl.addEventListener("click", function(){ loadNews(true); }); }
 
 // ====================================================================
-// 2. UNIFIED 3-COLUMN BREAKOUT TERMINAL & SECTOR MATRIX (ZERO HARDCODED)
+// 2. UNIFIED INTRADAY BREAKOUT TERMINAL & SECTOR MATRIX (ZERO HARDCODED)
 // ====================================================================
 async function loadTrend(forceRefresh) {
   var container = document.getElementById("moversBody") || document.getElementById("trendBody");
@@ -324,7 +324,7 @@ function renderTrendUI() {
   if (marketBreadthPct > 65) { statusLabel = "AGGRESSIVE ACCUMULATION"; statusColor = "#00b06a"; }
   else if (marketBreadthPct < 35) { statusLabel = "EXTREME LIQUIDATION DETECTED"; statusColor = "#ff3b30"; }
 
-  // 1. COLUMN 2 COMPILATION: SECTOR PARTICIPATION CARDS
+  // 1. COMPILE SECTOR rotation ROW LAYOUT PANELS
   var sectorsHTML = "";
   window.MOVERS_DATA_POOL.forEach(function(sector) {
     var flowColor = sector.bullishFlow ? "#00b06a" : "#ff3b30";
@@ -337,7 +337,7 @@ function renderTrendUI() {
            onmouseover="this.style.borderColor='#38bdf8'; this.style.transform='translateX(2px)'"
            onmouseout="this.style.borderColor='#1e293b'; this.style.transform='none'">
         <div style="display: flex; justify-content: space-between; align-items: center;">
-          <span style="color: #f1f5f9; font-weight: 700; font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px;">${sector.sectorName}</span>
+          <span style="color: #f1f5f9; font-weight: 700; font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px;">${sector.sectorName}</span>
           <div style="display: flex; align-items: center; gap: 8px;">
             <span style="color: ${flowColor}; font-weight: 800; font-size: 11.5px;">${sector.avgChangePct}</span>
             <div style="background: ${velocityBg}; border: 1px solid ${velocityColor}; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 900; color: ${velocityColor};">${sector.flowVelocity}x</div>
@@ -351,7 +351,7 @@ function renderTrendUI() {
     `;
   });
 
-  // 2. COLUMN 1 COMPILATION: SCANNER FLOW MATRICES
+  // 2. COMPILE BREAKOUT SCANNER BLOCKS
   var volumeShockersHTML = "";
   var priceBreakoutsHTML = "";
 
@@ -387,11 +387,12 @@ function renderTrendUI() {
     });
   }
 
-  // 3. MASTER INJECTION: FILL ENTIRE SCREEN WIDTH UNIFORMLY
+  // 3. MASTER FULL-WIDTH 3-COLUMN INTEL ENGINE INJECTION
+  container.style.cssText = "width: 100%; max-width: 100%; display: block; box-sizing: border-box; padding: 0; margin: 0;";
   container.innerHTML = `
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; width: 100%; box-sizing: border-box; text-align: left;">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; width: 100%; box-sizing: border-box; text-align: left;">
       
-      <div style="display: flex; flex-direction: column; gap: 12px;">
+      <div style="display: flex; flex-direction: column; gap: 12px; width: 100%;">
         <div style="border-bottom: 1px solid #1e293b; padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
           <span style="font-size: 11px; color: #38bdf8; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">📡 Intraday Diagnostic Scanner</span>
           <span style="background: rgba(56,189,248,0.06); border: 1px solid #38bdf8; padding: 2px 6px; border-radius: 4px; font-size: 8.5px; color: #38bdf8; font-weight: 700;">SIGNAL</span>
@@ -401,32 +402,32 @@ function renderTrendUI() {
           <h4 style="font-size:11px; color:#a855f7; font-weight:800; margin:0 0 10px 0; text-transform:uppercase; display:flex; align-items:center; gap:6px;">
             <span style="width:6px; height:6px; background:#a855f7; border-radius:50%;"></span> Volumetric Momentum Shockers
           </h4>
-          ${volumeShockersHTML || '<div style="font-size:11px; color:#64748b; padding:10px 0;">Processing volume arrays...</div>'}
+          ${volumeShockersHTML || '<div style="font-size:11px; color:#64748b; padding:10px 0;">Processing active matrices...</div>'}
         </div>
         
         <div style="background:#111827; border:1px solid #1e293b; border-radius:8px; padding:12px;">
           <h4 style="font-size:11px; color:#00b06a; font-weight:800; margin:0 0 10px 0; text-transform:uppercase; display:flex; align-items:center; gap:6px;">
-            <span style="width:6px; height:6px; background:#00b06a; border-radius:50%;"></span> Price Acceleration Signals
+            <span style="width:6px; height:6px; background:#00b06a; border-radius:50%;"></span> Price Breakout Acceleration
           </h4>
-          ${priceBreakoutsHTML || '<div style="font-size:11px; color:#64748b; padding:10px 0;">Calculating price models...</div>'}
+          ${priceBreakoutsHTML || '<div style="font-size:11px; color:#64748b; padding:10px 0;">Calculating momentum structures...</div>'}
         </div>
       </div>
 
-      <div style="display: flex; flex-direction: column; gap: 8px;">
+      <div style="display: flex; flex-direction: column; gap: 12px; width: 100%;">
         <div style="border-bottom: 1px solid #1e293b; padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
           <span style="font-size: 11px; color: #38bdf8; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">⚡ Sector Flow & Participation</span>
           <span style="background: rgba(56,189,248,0.05); border: 1px solid #38bdf8; padding: 2px 6px; border-radius: 4px; font-size: 8.5px; color:#38bdf8; font-weight: 700;">A/D PANEL</span>
         </div>
-        <div id="sector-scroll-container" style="max-height: 380px; overflow-y: auto; padding-right: 2px;">
+        <div id="sector-scroll-container" style="max-height: 380px; overflow-y: auto; padding-right: 2px; width: 100%;">
           ${sectorsHTML}
         </div>
       </div>
       
-      <div style="display: flex; flex-direction: column; gap: 8px;">
-        <div style="border-bottom: 1px solid #1e293b; padding-bottom: 8px;">
+      <div style="display: flex; flex-direction: column; gap: 12px; width: 100%;">
+        <div style="border-bottom: 1px solid #1e293b; padding-bottom: 8px; text-align: left;">
           <span style="font-size: 11px; color: #fbbf24; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">📊 Macro Exchange Sentiment Radar</span>
         </div>
-        <div style="background: #0b0f19; border: 1px solid #1e293b; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; justify-content: space-between; height: 100%; min-height: 360px; box-sizing: border-box; box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);">
+        <div style="background: #0b0f19; border: 1px solid #1e293b; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; justify-content: space-between; height: calc(100% - 23px); min-height: 350px; box-sizing: border-box; box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);">
           <div>
             <div style="font-size: 10px; color: #64748b; font-weight: 700; letter-spacing: 0.5px;">MARKET SENTIMENT COGNITION</div>
             <div style="font-size: 14px; font-weight: 900; color: ${statusColor}; margin: 6px 0 14px 0; letter-spacing: 0.2px;">${statusLabel}</div>
