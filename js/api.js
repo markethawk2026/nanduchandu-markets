@@ -215,7 +215,7 @@ async function yfNews(q) {
 // 1. ABSOLUTELY ZERO HARDCODED STOCKS OR SYMBOLS EXIST IN THIS REGISTER
 window.NSE_SECTOR_REGISTRY = null;
 
-async function yfMovers() {
+async function yfMovers(forceRefresh) {
   var sectors = ["IT", "BANKING", "PHARMA", "AUTO", "FMCG", "ENERGY", "METAL", "REALTY", "TELECOM", "FINANCIAL SERVICES"];
   
   // Dynamic map translates tracking fields to generic index lookup parameters
