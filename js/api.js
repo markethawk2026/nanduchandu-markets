@@ -219,109 +219,107 @@ async function yfMovers(forceRefresh) {
   var timestamp = Date.now();
   var liveSymbols = [];
 
-  // Standalone public proxy gateways
+  // Standalone verified public proxy circuits
   var proxyCircuits = [
-    (url) => "https://corsproxy.io/?url=" + encodeURIComponent(url),
-    (url) => "https://api.allorigins.win/raw?url=" + encodeURIComponent(url)
+    (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+    (url) => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`
   ];
 
-  // TRACK 1: Fetch live trending assets from the official Indian market feed
-  var trendingUrl = "https://query1.finance.yahoo.com/v1/finance/trending/IN?_=" + timestamp;
-  for (var i = 0; i < proxyCircuits.length; i++) {
-    try {
-      var response = await fetch(proxyCircuits[i](trendingUrl));
-      if (!response.ok) continue;
-      var responseText = await response.text();
-      
-      // Strict JSON parsing guard to catch HTML proxy errors safely
-      var json;
-      try { json = JSON.parse(responseText); } catch(e) { continue; }
-      if (json && json.contents) {
-        try { json = JSON.parse(json.contents); } catch(e) { continue; }
-      }
-      
-      if (json && json.finance && json.finance.result && json.finance.result[0]) {
-        var quotes = json.finance.result[0].quotes || [];
-        liveSymbols = quotes.map(q => q.symbol).filter(Boolean);
-        if (liveSymbols.length > 0) break;
-      }
-    } catch (e) {
-      console.debug("Trending proxy pass skipped.");
-    }
-  }
+  // TRACK 1: Query live Indian Day Gainers or Trending arrays
+  var endpoints = [
+    `https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?scrIds=day_gainers&count=10&region=IN&_=${timestamp}`,
+    `https://query1.finance.yahoo.com/v1/finance/trending/IN?_=${timestamp}`
+  ];
 
-  // TRACK 2: Alternate live source (Day Gainers Screener) if trending feed is offline
-  if (liveSymbols.length === 0) {
-    var screenerUrl = "https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?scrIds=day_gainers&count=5&region=IN&_=" + timestamp;
-    for (var i = 0; i < proxyCircuits.length; i++) {
+  for (var targetUrl of endpoints) {
+    if (liveSymbols.length > 0) break;
+    for (var proxy of proxyCircuits) {
       try {
-        var response = await fetch(proxyCircuits[i](screenerUrl));
+        var response = await fetch(proxy(targetUrl));
         if (!response.ok) continue;
-        var responseText = await response.text();
+        var text = await response.text();
         
+        // Strict JSON parsing insulation to catch HTML proxy blocks safely
         var json;
-        try { json = JSON.parse(responseText); } catch(e) { continue; }
+        try { json = JSON.parse(text); } catch(e) { continue; }
         if (json && json.contents) {
           try { json = JSON.parse(json.contents); } catch(e) { continue; }
         }
         
-        if (json && json.finance && json.finance.result && json.finance.result[0]) {
-          var quotes = json.finance.result[0].quotes || [];
-          liveSymbols = quotes.map(q => q.symbol).filter(Boolean);
-          if (liveSymbols.length > 0) break;
+        var resultNode = json?.finance?.result?.[0] || json?.quoteResponse?.result;
+        if (resultNode) {
+          var quotes = resultNode.quotes || (Array.isArray(resultNode) ? resultNode : []);
+          var symbols = quotes.map(q => q.symbol).filter(Boolean);
+          if (symbols.length > 0) {
+            liveSymbols = symbols;
+            break;
+          }
         }
       } catch (e) {
-        console.debug("Screener proxy pass skipped.");
+        console.debug("Network route bypassed.");
       }
     }
   }
 
-  // TRACK 3: Session Context (Bypass to active UI node if feeds are completely blocked)
+  // TRACK 2: Dynamic Headline Harvesting (Zero hardcoding, pulls text from active screen)
+  if (liveSymbols.length === 0) {
+    var articles = window.ACTIVE_NEWS_POOL || (window.CACHE && window.CACHE.news) || [];
+    var discoveredWords = [];
+    
+    articles.forEach(function(art) {
+      var matches = String(art.headline || "").match(/\b[A-Z]{3,8}\b/g);
+      if (matches) discoveredWords.push(...matches);
+    });
+    
+    var stopWords = ["NEWS", "INDIA", "MARKET", "STOCKS", "TODAY", "BANK", "RISE", "FALL", "JUMP", "HIGH", "VIEW", "BULL", "BEAR", "THE", "FOR", "OUT", "WILL", "WITH", "FROM"];
+    liveSymbols = [...new Set(discoveredWords)]
+      .filter(w => !stopWords.includes(w))
+      .map(w => w + ".NS");
+  }
+
+  // TRACK 3: Active Interface Node Fallback
   if (liveSymbols.length === 0 && window.activeTickerNode) {
     liveSymbols = [window.activeTickerNode.endsWith(".NS") ? window.activeTickerNode : window.activeTickerNode + ".NS"];
   }
 
-  // Deduplicate and select top 5 assets to perfectly fit layout display rows
+  // Final array deduplication and row sizing clamping
   liveSymbols = [...new Set(liveSymbols)].slice(0, 5);
   var formattedResults = [];
 
-  // STEP 2: Fetch and map genuine real-time quotes for discovered assets
-  if (liveSymbols.length > 0) {
-    // Literal comma separation applied directly to prevent parameter parsing rejections
-    var quoteUrl = "https://query1.finance.yahoo.com/v7/finance/quote?symbols=" + liveSymbols.join(',') + "&_=" + timestamp;
-    for (var i = 0; i < proxyCircuits.length; i++) {
-      try {
-        var response = await fetch(proxyCircuits[i](quoteUrl));
-        if (!response.ok) continue;
-        var responseText = await response.text();
+  // STEP 2: Route discovered keys directly through your verified yfQuote engine
+  for (var rawSymbol of liveSymbols) {
+    try {
+      var cleanTicker = String(rawSymbol).toUpperCase().replace(".NS", "").replace(".BO", "").replace("^", "");
+      
+      // Look up live data using your working core function
+      var q = await yfQuote(cleanTicker);
+      if (!q) q = await yfQuote(cleanTicker + ".NS");
+      
+      if (q) {
+        var priceValue = q.regularMarketPrice || q.price || q.rawPrice || 0;
+        var changeValue = q.regularMarketChangePercent || q.changePercent || q.changePct || q.rawChangePct || 0;
         
-        var json;
-        try { json = JSON.parse(responseText); } catch(e) { continue; }
-        if (json && json.contents) {
-          try { json = JSON.parse(json.contents); } catch(e) { continue; }
+        if (typeof changeValue === 'string') {
+          changeValue = parseFloat(changeValue.replace('%', '').replace('+', '')) || 0;
         }
-        
-        if (json && json.quoteResponse && json.quoteResponse.result) {
-          json.quoteResponse.result.forEach(function(q) {
-            var cleanTicker = String(q.symbol).toUpperCase().replace(".NS", "").replace(".BO", "").replace("^", "");
-            var changeValue = parseFloat(q.regularMarketChangePercent) || 0;
-            
-            formattedResults.push({
-              ticker: cleanTicker,
-              symbol: String(q.symbol).toUpperCase(),
-              name: q.shortName || q.longName || cleanTicker,
-              price: parseFloat(q.regularMarketPrice) || 0,
-              changePct: changeValue,
-              rawChangePct: changeValue,
-              volume: parseFloat(q.regularMarketVolume) || 0,
-              sector: q.industry || q.quoteType || "EQUITY"
-            });
-          });
-          if (formattedResults.length > 0) break;
+        if (typeof priceValue === 'string') {
+          priceValue = parseFloat(priceValue.replace(/[^0-9.]/g, '')) || 0;
         }
-      } catch (err) {
-        console.debug("Quote engine proxy pass skipped.");
+
+        formattedResults.push({
+          ticker: cleanTicker,
+          symbol: cleanTicker + ".NS",
+          name: q.name || q.shortName || q.longName || cleanTicker,
+          price: priceValue,
+          changePct: changeValue,
+          rawChangePct: changeValue,
+          intraday: changeValue,
+          volume: q.volume || q.regularMarketVolume || 0,
+          sector: q.sector || q.industry || q.quoteType || "EQUITY"
+        });
       }
+    } catch (err) {
+      console.debug("Quote validation skipped for token: " + rawSymbol);
     }
   }
 
