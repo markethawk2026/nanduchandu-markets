@@ -297,17 +297,23 @@ async function yfMovers(forceRefresh) {
   // Limit parsing arrays dynamically to protect background layout pipelines
   var activeScanTargets = masterPool.slice(0, 35);
 
-  for (var i = 0; i < activeScanTargets.length; i++) {
-    var tickerSym = activeScanTargets[i];
-    try {
-      if (window.CACHE.prices[tickerSym] && fresh(window.CACHE.prices[tickerSym].ts, window.TTL.s)) {
-        formatted.push(parseDynamicMoverItem(tickerSym, window.CACHE.prices[tickerSym].d));
-        continue;
-      }
-      var quoteObj = await yfQuote(tickerSym);
-      if (quoteObj) formatted.push(parseDynamicMoverItem(tickerSym, quoteObj));
-    } catch(err) {}
-  }
+  // FIXED CODE
+for (var i = 0; i < activeScanTargets.length; i++) {
+  var tickerSym = activeScanTargets[i];
+  try {
+    // If a forced refresh is ticking, clear the local cache line for this asset
+    if (forceRefresh) {
+      delete window.CACHE.prices[tickerSym];
+    }
+
+    if (window.CACHE.prices[tickerSym] && fresh(window.CACHE.prices[tickerSym].ts, window.TTL.s)) {
+      formatted.push(parseDynamicMoverItem(tickerSym, window.CACHE.prices[tickerSym].d));
+      continue;
+    }
+    var quoteObj = await yfQuote(tickerSym);
+    if (quoteObj) formatted.push(parseDynamicMoverItem(tickerSym, quoteObj));
+  } catch (err) {}
+}
 
   // 4. ALGORITHMIC SIMULATION GENERATOR (TRIGGERS ONLY IF PROXIES BLOCKED)
   if (formatted.length === 0) {
