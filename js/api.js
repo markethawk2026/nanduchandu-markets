@@ -212,88 +212,83 @@ async function yfNews(q) {
   return masterArticles.slice(0, 30);
 }
 
-
 // ====================================================================
 // CORE YAHOO FINANCE TRENDING & SCREENER PIPELINE (100% REAL LIVE DATA)
 // ====================================================================
 async function yfMovers(forceRefresh) {
   var timestamp = Date.now();
-  var targetSymbols = [];
+  var results = [];
 
-  // TRACK 1: Query Yahoo Finance's live Indian Trending Registry using your proxy handler
-  try {
-    var trendingUrl = "https://query1.finance.yahoo.com/v1/finance/trending/IN?_col=" + timestamp;
-    var json = await proxyFetch(trendingUrl, 2500);
-    var quotes = json?.finance?.result?.[0]?.quotes || [];
-    quotes.forEach(function(q) {
-      if (q && q.symbol && !targetSymbols.includes(q.symbol)) {
-        targetSymbols.push(q.symbol);
-      }
-    });
-  } catch (e) {
-    console.debug("Trending registry endpoint restricted. Activating live news wire parsing...");
-  }
+  // 1. Standard public proxy routes (Pure Vanilla JS - no custom dependencies)
+  var proxies = [
+    (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+    (url) => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`
+  ];
 
-  // TRACK 2: Dynamic News Wire Scraping (100% data-driven discovery)
-  if (targetSymbols.length < 5) {
-    try {
-      // Gather text content directly from your active loaded news objects
-      var articles = window.ACTIVE_NEWS_POOL || (window.CACHE && window.CACHE.news) || [];
-      var textPool = articles.map(function(a) { return a.headline || ""; }).join(" ");
-      
-      // Fallback to active screen elements if the cache array hasn't completed filling
-      if (!textPool) {
-        textPool = document.body.innerText || "";
-      }
+  // 2. Real Yahoo registries for Day Gainers, Most Active, and Trending Indian equities
+  var registries = [
+    `https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?scrIds=day_gainers&count=10&region=IN&_=${timestamp}`,
+    `https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?scrIds=most_active&count=10&region=IN&_=${timestamp}`,
+    `https://query1.finance.yahoo.com/v1/finance/trending/IN?_=${timestamp}`
+  ];
 
-      // Isolate potential stock identifiers using uppercase boundaries
-      var rawTokens = textPool.match(/\b[A-Z]{3,7}\b/g) || [];
-      var stopWords = ["NEWS", "INDIA", "MARKET", "STOCKS", "TODAY", "BANK", "RISE", "FALL", "JUMP", "HIGH", "VIEW", "BULL", "BEAR", "THE", "FOR", "OUT", "AND", "WITH", "LIVE", "FREE", "MORE", "MAY", "JUNE", "JULY", "BOOM", "POST", "DATE", "IPO", "BUZZ"];
-      
-      var uniqueTokens = [...new Set(rawTokens)]
-        .filter(function(t) { return !stopWords.includes(t); })
-        .slice(0, 12);
+  // 3. Sequential evaluation stream
+  for (var targetUrl of registries) {
+    if (results.length >= 5) break;
 
-      // Verify strings using your live search utility to identify actual legal equities
-      for (var token of uniqueTokens) {
-        if (targetSymbols.length >= 6) break;
-        var searchResults = await yfSearch(token);
-        if (searchResults && searchResults.length > 0) {
-          var topMatch = searchResults[0].symbol;
-          if (topMatch && !targetSymbols.includes(topMatch)) {
-            targetSymbols.push(topMatch);
+    for (var proxy of proxies) {
+      try {
+        var response = await fetch(proxy(targetUrl));
+        if (!response.ok) continue;
+        var rawText = await response.text();
+
+        // Safe JSON evaluation across standard and proxy-encapsulated nodes
+        var json = JSON.parse(rawText);
+        if (json && json.contents) json = JSON.parse(json.contents);
+
+        var resultNode = json?.finance?.result?.[0] || json?.quoteResponse?.result;
+        if (!resultNode) continue;
+
+        var quotes = resultNode.quotes || (Array.isArray(resultNode) ? resultNode : []);
+
+        for (var q of quotes) {
+          if (results.length >= 5) break;
+          if (!q || !q.symbol) continue;
+
+          // Deduplicate counters to ensure distinct rows
+          var isDuplicate = results.some(item => item.symbol === q.symbol);
+          if (isDuplicate) continue;
+
+          var livePrice = q.regularMarketPrice || q.price || 0;
+          var liveChange = q.regularMarketChangePercent || q.changePercent || 0;
+
+          // Only process active instruments containing a verifiable market transaction value
+          if (livePrice > 0) {
+            var cleanTicker = String(q.symbol).toUpperCase().replace(".NS", "").replace(".BO", "").replace("^", "");
+            
+            results.push({
+              ticker: cleanTicker,
+              symbol: String(q.symbol).toUpperCase(),
+              name: q.shortName || q.longName || cleanTicker,
+              price: parseFloat(livePrice),
+              changePct: parseFloat(liveChange),
+              rawChangePct: parseFloat(liveChange),
+              intraday: parseFloat(liveChange),
+              volume: parseFloat(q.regularMarketVolume || q.volume || 0),
+              sector: q.exchange || q.market || "NSE"
+            });
           }
         }
+
+        if (results.length > 0) break; // Registry query successful, move forward
+      } catch (err) {
+        console.debug("Network route cleared and rotated.");
       }
-    } catch (err) {
-      console.debug("Dynamic wire parsing execution bypassed.");
     }
   }
 
-  // STEP 2: Structural Pipeline Realignment
-  var finalMovers = [];
-  var cleanSymbols = [...new Set(targetSymbols)].slice(0, 5);
-
-  for (var sym of cleanSymbols) {
-    try {
-      var cleanTicker = sym.replace(".NS", "").replace(".BO", "").replace("^", "");
-      
-      // Pull true metrics from your verified quote function
-      var qData = await yfQuote(cleanTicker);
-      if (qData) {
-        // Run data through your native formatter to match front-end expectations perfectly
-        var parsedItem = parseDynamicMoverItem(cleanTicker, qData);
-        if (parsedItem) {
-          finalMovers.push(parsedItem);
-        }
-      }
-    } catch (e) {
-      console.debug("Mover validation skipped for symbol: " + sym);
-    }
-  }
-
-  // Returns pure live data array. Empty states handle cleanly without crashing.
-  return finalMovers;
+  // Returns pure live data structures. Zero hardcoded assets or values.
+  return results;
 }
 
 function parseDynamicMoverItem(sym, q) {
