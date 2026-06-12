@@ -213,85 +213,84 @@ async function yfNews(q) {
 }
 
 // ====================================================================
-// CORE LIVE TRENDING ENGINE (100% REAL EXCHANGE DATA · NO HARDCODE)
+// CORE YAHOO FINANCE TRENDING & SCREENER PIPELINE (100% REAL LIVE DATA)
 // ====================================================================
 async function yfMovers(forceRefresh) {
-  // 1. Multiple independent proxy gateways to bypass Yahoo's strict CORS blocks
-  var proxies = [
-    (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
-    (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-    (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`
+  var timestamp = Date.now();
+  var formattedResults = [];
+
+  // Robust public proxy gateways to handle live JSON streams
+  var proxyCircuits = [
+    (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+    (url) => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`
   ];
 
-  var symbols = [];
-  var trendingUrl = "https://query1.finance.yahoo.com/v1/finance/trending/IN";
+  // Live Yahoo Finance API feeds covering Gainers, Losers, Active, and Trending
+  var targetEndpoints = [
+    `https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?scrIds=day_gainers&count=10&region=IN&_=${timestamp}`,
+    `https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?scrIds=day_losers&count=10&region=IN&_=${timestamp}`,
+    `https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?scrIds=most_active&count=10&region=IN&_=${timestamp}`,
+    `https://query1.finance.yahoo.com/v1/finance/trending/IN?_=${timestamp}`
+  ];
 
-  // TRACK 1: Real-time trending symbols from Yahoo India
-  for (var proxy of proxies) {
-    try {
-      var res = await fetch(proxy(trendingUrl));
-      if (!res.ok) continue;
-      var data = JSON.parse(await res.text());
-      var quotes = data?.finance?.result?.[0]?.quotes || [];
-      
-      // Extract up to 5 genuine NSE/BSE tickers
-      symbols = quotes.map(q => q.symbol).filter(s => s.endsWith('.NS') || s.endsWith('.BO')).slice(0, 5);
-      if (symbols.length > 0) break;
-    } catch (e) {
-      console.debug("Trending proxy blocked, rotating...");
-    }
-  }
+  // Execute single-pass stream gathering across endpoints
+  for (var url of targetEndpoints) {
+    if (formattedResults.length >= 5) break;
 
-  // TRACK 2: Purely Dynamic Headline Scrape (Only runs if Track 1 is blocked by API)
-  if (symbols.length === 0) {
-    var text = document.body.innerText || "";
-    var matches = text.match(/\b[A-Z]{3,8}\b/g) || [];
-    var stopWords = ["NEWS", "INDIA", "MARKET", "STOCKS", "TODAY", "BANK", "RISE", "FALL", "JUMP", "HIGH", "VIEW", "BULL", "BEAR", "THE", "FOR", "OUT", "AND", "WITH"];
-    
-    symbols = [...new Set(matches)]
-      .filter(w => !stopWords.includes(w))
-      .slice(0, 5)
-      .map(w => w + ".NS");
-  }
-
-  var results = [];
-
-  // TRACK 3: Fetch true 100% Live Market Prices for discovered symbols
-  if (symbols.length > 0) {
-    var quoteUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbols.join(',')}`;
-    for (var proxy of proxies) {
+    for (var proxy of proxyCircuits) {
       try {
-        var qRes = await fetch(proxy(quoteUrl));
-        if (!qRes.ok) continue;
-        var qData = JSON.parse(await qRes.text());
-        var fetchedQuotes = qData?.quoteResponse?.result || [];
+        var response = await fetch(proxy(url));
+        if (!response.ok) continue;
+        var rawText = await response.text();
         
-        if (fetchedQuotes.length > 0) {
-          fetchedQuotes.forEach(q => {
-            if (q.regularMarketPrice !== undefined) {
-              results.push({
-                ticker: String(q.symbol).replace(".NS", "").replace(".BO", ""),
-                symbol: String(q.symbol),
-                name: q.shortName || q.longName || q.symbol,
-                price: parseFloat(q.regularMarketPrice) || 0,
-                changePct: parseFloat(q.regularMarketChangePercent) || 0,
-                rawChangePct: parseFloat(q.regularMarketChangePercent) || 0,
-                intraday: parseFloat(q.regularMarketChangePercent) || 0,
-                volume: parseInt(q.regularMarketVolume) || 0,
-                sector: q.exchange || q.market || ""
+        // Strict multi-layer JSON wrapper handling
+        var json;
+        try { json = JSON.parse(rawText); } catch(e) { continue; }
+        if (json && json.contents) {
+          try { json = JSON.parse(json.contents); } catch(e) { continue; }
+        }
+
+        var resultContainer = json?.finance?.result?.[0];
+        if (resultContainer) {
+          var quotes = resultContainer.quotes || [];
+          
+          for (var q of quotes) {
+            if (formattedResults.length >= 5) break;
+            if (!q.symbol) continue;
+
+            // Ensure we filter out duplicates across different feeds
+            var isDuplicate = formattedResults.some(item => item.symbol === q.symbol);
+            if (isDuplicate) continue;
+
+            var cleanTicker = String(q.symbol).toUpperCase().replace(".NS", "").replace(".BO", "").replace("^", "");
+            var changeValue = parseFloat(q.regularMarketChangePercent) || 0;
+            var priceValue = parseFloat(q.regularMarketPrice) || 0;
+
+            // Only push if the API returned an actual live tradable price
+            if (priceValue > 0) {
+              formattedResults.push({
+                ticker: cleanTicker,
+                symbol: String(q.symbol).toUpperCase(),
+                name: q.shortName || q.longName || cleanTicker,
+                price: priceValue,
+                changePct: changeValue,
+                rawChangePct: changeValue,
+                intraday: changeValue,
+                volume: parseFloat(q.regularMarketVolume) || 0,
+                sector: q.exchange || q.market || "NSE"
               });
             }
-          });
-          break; // Successfully fetched, exit proxy rotation
+          }
         }
-      } catch (e) {
-        console.debug("Quote proxy blocked, rotating...");
+        if (formattedResults.length > 0) break; // Break out of proxy circuit if dataset acquired
+      } catch (err) {
+        console.debug("Screener routing channel shifted.");
       }
     }
   }
 
-  // Return EXACTLY what was found. No fake arrays. No hardcoded indexes.
-  return results;
+  // Return the pure, untampered array directly to the front-end rendering loop
+  return formattedResults;
 }
 
 function parseDynamicMoverItem(sym, q) {
