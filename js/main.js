@@ -234,15 +234,15 @@ var btnNewsEl = document.getElementById("btnNews");
 if (btnNewsEl) { btnNewsEl.addEventListener("click", function(){ loadNews(true); }); }
 
 // ====================================================================
-// 2. UNIFIED 4-QUADRANT TERMINAL DESK MATRIX (WITH ACTIVE REFRESH FIX)
+// 2. UNIFIED 4-QUADRANT TERMINAL DESK MATRIX (WITH PRECISION REFRESH)
 // ====================================================================
 async function loadTrend(forceRefresh) {
   var container = document.getElementById("moversBody") || document.getElementById("trendBody");
   if (!container) return;
 
-  // Visual cue: Provide quick feedback that a refresh event has been triggered
+  // Provide instant feedback that the click was registered
   if (forceRefresh) {
-    container.style.opacity = "0.5";
+    container.style.opacity = "0.6";
   }
 
   var rawData = [];
@@ -254,7 +254,7 @@ async function loadTrend(forceRefresh) {
 
   if (typeof yfMovers === "function") {
     try { 
-      // FIX: Passing forceRefresh into yfMovers bypasses internal storage caching
+      // Passing the flag forces a clean network bypass where supported
       var apiData = await yfMovers(forceRefresh); 
       if (Array.isArray(apiData) && apiData.length > 0) {
         var sectorMap = {};
@@ -315,13 +315,16 @@ async function loadTrend(forceRefresh) {
   
   renderTrendUI();
   
-  // Restore opacity back to normal after UI finishes rendering
+  // Flash back to full visibility instantly once rendered
   container.style.opacity = "1";
 }
 
 function renderTrendUI() {
   var container = document.getElementById("moversBody") || document.getElementById("trendBody");
   if (!container || !window.MOVERS_DATA_POOL) return;
+
+  // Capture the exact instant the data updates
+  var timestamp = new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
   var totalAdv = window.GLOBAL_TOTAL_ADVANCES || 0;
   var totalDec = window.GLOBAL_TOTAL_DECLINES || 0;
@@ -359,7 +362,7 @@ function renderTrendUI() {
     `;
   });
 
-  // 2. FIXED VARIABLE MATCHING: GENERATE STOCK ANALYZER & BLOCK LOGS
+  // 2. GENERATE STOCK ANALYZER & BLOCK LOGS HTML
   var analyzerRowsHTML = "";
   var blockDealsHTML = "";
 
@@ -414,16 +417,15 @@ function renderTrendUI() {
     });
   }
 
-  
-// 3. MASTER UNIFIED 4-QUADRANT LAYOUT HOUSING (WITH NAVIGATION SAFETY BUFFER)
-  container.style.cssText = "width: 100%; max-width: 100%; display: block; box-sizing: border-box; padding: 0; margin-top: 70px;";
+  // 3. MASTER TERMINAL DESK INJECTION WITH INTEGRATED TIMESTAMP BADGES
+  container.style.cssText = "width: 100%; max-width: 100%; display: block; box-sizing: border-box; padding: 0; margin: 0;";
   container.innerHTML = `
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; width: 100%; box-sizing: border-box; text-align: left;">
-    
+      
       <div style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
         <div style="border-bottom: 1px solid #1e293b; padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
-          <span style="font-size: 11px; color: #38bdf8; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">🔍 Real-Time Technical Analyzer</span>
-          <span style="background: rgba(56,189,248,0.06); border: 1px solid #38bdf8; padding: 2px 6px; border-radius: 4px; font-size: 8.5px; color: #38bdf8; font-weight: 700;">ALGO CORE</span>
+          <span style="font-size: 11px; color: #38bdf8; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">🔍 Technical Analyzer</span>
+          <span style="background: rgba(56,189,248,0.06); border: 1px solid #38bdf8; padding: 2px 6px; border-radius: 4px; font-size: 8.5px; color: #38bdf8; font-weight: 700; font-family: monospace;">SYNCED ${timestamp}</span>
         </div>
         <div style="background: #0b0f19; border: 1px solid #1e293b; border-radius: 12px; padding: 8px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.2); overflow: hidden; height: 100%;">
           <table style="width: 100%; border-collapse: collapse; text-align: left;">
@@ -444,7 +446,7 @@ function renderTrendUI() {
 
       <div style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
         <div style="border-bottom: 1px solid #1e293b; padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
-          <span style="font-size: 11px; color: #38bdf8; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">⚡ Sector Volumetric Flow & Breadth</span>
+          <span style="font-size: 11px; color: #38bdf8; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">⚡ Sector Volumetric Flow</span>
           <span style="background: rgba(56,189,248,0.05); border: 1px solid #38bdf8; padding: 2px 6px; border-radius: 4px; font-size: 8.5px; color:#38bdf8; font-weight: 700;">A/D PANEL</span>
         </div>
         <div id="sector-scroll-container" style="max-height: 235px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 2px; width: 100%;">
@@ -475,8 +477,8 @@ function renderTrendUI() {
 
       <div style="display: flex; flex-direction: column; gap: 8px; width: 100%; margin-top: 10px;">
         <div style="border-bottom: 1px solid #1e293b; padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
-          <span style="font-size: 11px; color: #fbbf24; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">💼 Institutional Block Deal Monitor</span>
-          <span style="background: rgba(251,191,36,0.06); border: 1px solid #fbbf24; padding: 2px 6px; border-radius: 4px; font-size: 8.5px; color: #fbbf24; font-weight: 700;">LIVE LOG</span>
+          <span style="font-size: 11px; color: #fbbf24; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">💼 Institutional Block Deals</span>
+          <span style="background: rgba(251,191,36,0.06); border: 1px solid #fbbf24; padding: 2px 6px; border-radius: 4px; font-size: 8.5px; color: #fbbf24; font-weight: 700; font-family: monospace;">LIVE FEED</span>
         </div>
         <div style="background: #0b0f19; border: 1px solid #1e293b; border-radius: 12px; padding: 12px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.2); min-height: 200px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: flex-start; height: 100%;">
           <div style="display: flex; flex-direction: column; gap: 4px; width: 100%;">
@@ -488,7 +490,6 @@ function renderTrendUI() {
     </div>
   `;
 }
-
 
 // ====================================================================
 // 1. EXCHANGE GATEWAY HELPER: REAL-TIME WEEKDAY CLOCK VALVE
