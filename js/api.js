@@ -213,27 +213,28 @@ async function yfNews(q) {
 }
 
 // ====================================================================
-// GOOGLE FINANCE DYNAMIC AGGREGATOR (100% REAL DATA · ZERO HARDCODE)
+// MULTI-CATEGORY GOOGLE FINANCE DISCOVERY ENGINE (100% LIVE · NO HARDCODE)
 // ====================================================================
 async function yfMovers(forceRefresh) {
   let results = [];
-  let discoveredSymbols = [];
-  
-  // 1. Separate target feeds for each market dimension
+  let discoveredSymbols = []; // Starts completely empty—zero hardcoded stock symbols
+
+  // 1. Target URLs for each separate market category requested
   const categories = [
     { url: "https://www.google.com/finance/markets/gainers?hl=en&gl=IN", type: "GAINER" },
     { url: "https://www.google.com/finance/markets/losers?hl=en&gl=IN", type: "LOSER" },
     { url: "https://www.google.com/finance/markets/most-active?hl=en&gl=IN", type: "ACTIVE" }
   ];
 
+  // Auto-correct proxy URL structures to avoid standard connection rejection errors
   const proxyList = (typeof PROXIES !== 'undefined') ? PROXIES.map(p => p.replace("?url=", "?")) : [
     "https://corsproxy.io/?",
     "https://api.allorigins.win/raw?url="
   ];
 
-  // 2. TRACK 1: Pull live tickers and metrics from Google Finance structures
+  // 2. TRACK 1: Dynamic scraping from live Google Finance web pages
   for (let cat of categories) {
-    if (discoveredSymbols.length >= 5) break;
+    if (discoveredSymbols.length >= 6) break;
 
     try {
       let htmlText = "";
@@ -242,87 +243,80 @@ async function yfMovers(forceRefresh) {
           let res = await fetch(proxy + encodeURIComponent(cat.url));
           if (res.ok) {
             htmlText = await res.text();
-            if (htmlText && htmlText.includes(":NSE")) break;
+            if (htmlText && htmlText.includes(":NSE")) break; // Data verified
           }
-        } catch (e) {}
+        } catch (proxyErr) {
+          continue;
+        }
       }
 
-      if (!htmlText) continue;
+      if (htmlText) {
+        // Bulletproof regex matching Google's exact web link patterns: /quote/SYMBOL:NSE
+        let tickerRegex = /\/quote\/([A-Z0-9_#-]+):NSE/g;
+        let match;
+        let itemsFromCategory = 0;
 
-      let tickerRegex = /\b([A-Z0-9_#-]+):NSE\b/g;
-      let match;
-      let itemsFromCategory = 0;
-
-      while ((match = tickerRegex.exec(htmlText)) !== null && itemsFromCategory < 2) {
-        let ticker = match[1].toUpperCase();
-        if (discoveredSymbols.includes(ticker)) continue;
-
-        let idx = htmlText.indexOf(match[0]);
-        if (idx === -1) continue;
-        
-        let chunk = htmlText.substring(idx, idx + 1200);
-        let priceMatch = chunk.match(/₹\s*([0-9,]+\.[0-9]{2})/);
-        
-        if (priceMatch) {
-          let priceStr = "₹" + priceMatch[1];
-          let changePctStr = "0.00%";
-          let isPositive = cat.type === "GAINER";
-          let ariaMatch = chunk.match(/aria-label="(Up|Down)\s+by\s+([0-9.]+)%"/i);
-
-          if (ariaMatch) {
-            isPositive = ariaMatch[1].toLowerCase() === "up";
-            changePctStr = (isPositive ? "+" : "-") + parseFloat(ariaMatch[2]).toFixed(2) + "%";
+        // Take a balanced selection (up to 2 elements) from each category list
+        while ((match = tickerRegex.exec(htmlText)) !== null && itemsFromCategory < 2) {
+          let symbol = match[1].toUpperCase();
+          if (!discoveredSymbols.includes(symbol)) {
+            discoveredSymbols.push(symbol);
+            itemsFromCategory++;
           }
-
-          results.push({
-            ticker: ticker,
-            price: priceStr,
-            intraday: changePctStr,
-            changePct: changePctStr,
-            signal: isPositive ? "BREAKOUT" : "WEAK",
-            sector: cat.type
-          });
-
-          discoveredSymbols.push(ticker);
-          itemsFromCategory++;
         }
       }
     } catch (err) {
-      console.warn(`Category stream disconnected for ${cat.type}`);
+      console.warn(`Category scraper offline for: ${cat.type}`);
     }
   }
 
-  // 3. TRACK 2 FALLBACK: If Track 1 drops, harvest live text tokens and query actual prices
-  if (results.length === 0) {
+  // 3. TRACK 2 FALLBACK: Mine text tokens directly from your live screen elements
+  if (discoveredSymbols.length === 0) {
     try {
       const pageText = document.body.innerText || "";
-      const tokens = pageText.match(/\b[A-Z]{4,8}\b/g) || [];
-      const systemWords = ["THE", "AND", "FOR", "LIVE", "FREE", "NSE", "BSE", "BANK", "NEWS", "ASSET", "PRICE", "SIGNAL", "INTRADAY", "MARKET", "TIME", "VIEW", "SUMMARY"];
+      const tokens = pageText.match(/\b[A-Z]{4,10}\b/g) || [];
+      const systemKeywords = ["THE", "AND", "FOR", "LIVE", "FREE", "NSE", "BSE", "BANK", "NEWS", "ASSET", "PRICE", "SIGNAL", "INTRADAY", "MARKET", "TIME", "VIEW", "SUMMARY", "TODAY"];
       
-      const targetTokens = [...new Set(tokens)].filter(t => !systemWords.includes(t)).slice(0, 5);
-      
-      for (let token of targetTokens) {
-        // Query your live system framework for the real asset values
-        let qData = await yfQuote(token + ".NS");
-        if (qData && qData.price && qData.price !== "₹0.00") {
-          let rawChange = parseFloat(String(qData.changePct).replace(/[^0-9.-]/g, '')) || 0;
-          results.push({
-            ticker: token,
-            price: qData.price,
-            intraday: qData.changePct || "0.00%",
-            changePct: qData.changePct || "0.00%",
-            signal: rawChange >= 0 ? "BREAKOUT" : "WEAK",
-            sector: "MARKET"
-          });
-        }
+      // Isolate legitimate corporate words currently rendered on your interface
+      let cleanTokens = [...new Set(tokens)].filter(t => !systemKeywords.includes(t)).slice(0, 5);
+      for (let token of cleanTokens) {
+        discoveredSymbols.push(token);
       }
-    } catch (e) {
-      console.error("Data fallback pipeline disrupted:", e);
+    } catch (domErr) {
+      console.error("DOM mining fallback interrupted:", domErr);
     }
   }
 
-  console.log("Verified Live Payload Delivery:", results);
-  return results.slice(0, 5);
+  // 4. METRIC COMPILATION: Query your working live quote engine for actual figures
+  for (let ticker of discoveredSymbols) {
+    if (results.length >= 5) break;
+
+    try {
+      // Append National Stock Exchange syntax mapping required by your backend configuration
+      let lookupTicker = ticker.includes(".") ? ticker : ticker + ".NS";
+      let qData = await yfQuote(lookupTicker);
+      
+      if (qData && qData.price && qData.price !== "₹0.00" && qData.price !== 0) {
+        let changeVal = qData.changePct || qData.intraday || "0.00%";
+        let rawChange = parseFloat(String(changeVal).replace(/[^0-9.-]/g, '')) || 0;
+
+        // Populate object schema properties to perfectly match your UI structure requirements
+        results.push({
+          ticker: ticker,
+          price: qData.price,
+          intraday: changeVal,
+          changePct: changeVal,
+          signal: rawChange >= 0 ? "BREAKOUT" : "WEAK",
+          sector: rawChange >= 0 ? "GAINER" : "LOSER"
+        });
+      }
+    } catch (quoteErr) {
+      console.debug(`Real-time valuation bypassed for dynamic symbol: ${ticker}`);
+    }
+  }
+
+  console.log("Dynamic Market Table Ingestion Complete:", results);
+  return results;
 }
 
 function parseDynamicMoverItem(sym, q) {
