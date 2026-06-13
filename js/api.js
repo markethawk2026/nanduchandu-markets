@@ -213,79 +213,106 @@ async function yfNews(q) {
 }
 
 // ====================================================================
-// FREE WEBSITE MOVERS DISCOVERY ENGINE (100% REAL DATA · NO HARDCODE)
+// MULTI-ASSET GOOGLE FINANCE DISCOVERY ENGINE (100% LIVE · NO HARDCODE)
 // ====================================================================
 async function yfMovers(forceRefresh) {
-  let discoveredTickers = [];
+  let results = [];
   
-  // 1. Target URL registry from Google Finance India Markets
-  const targetUrls = [
-    "https://www.google.com/finance/markets/gainers?hl=en&gl=IN",
-    "https://www.google.com/finance/markets/most-active?hl=en&gl=IN"
+  // 1. Dynamic target categories spanning Market Indices, Gainers, Losers, and Volume leaders
+  const categories = [
+    { url: "https://www.google.com/finance/?hl=en&gl=IN", suffix: ":(INDEXNSE|INDEXBOM)", label: "INDEX" },
+    { url: "https://www.google.com/finance/markets/gainers?hl=en&gl=IN", suffix: ":NSE", label: "NSE" },
+    { url: "https://www.google.com/finance/markets/losers?hl=en&gl=IN", suffix: ":NSE", label: "NSE" },
+    { url: "https://www.google.com/finance/markets/most-active?hl=en&gl=IN", suffix: ":NSE", label: "NSE" }
   ];
 
-  // 2. Scan Google Finance pages using your global PROXIES array
-  for (let targetUrl of targetUrls) {
-    if (discoveredTickers.length >= 8) break;
+  // Automated fallback protection for global scopes
+  const proxyList = (typeof PROXIES !== 'undefined') ? PROXIES : [
+    "https://corsproxy.io/?",
+    "https://api.allorigins.win/raw?url="
+  ];
 
-    for (let proxyPrefix of PROXIES) {
+  // 2. Loop through each specific market registry page sequentially
+  for (let cat of categories) {
+    let htmlText = "";
+    
+    for (let proxyPrefix of proxyList) {
       try {
-        let fullUrl = proxyPrefix + encodeURIComponent(targetUrl);
+        let fullUrl = proxyPrefix + encodeURIComponent(cat.url);
         let res = await fetch(fullUrl);
-        if (!res.ok) continue;
-        let htmlText = await res.text();
-
-        // Extract any uppercase symbol mapped directly to the National Stock Exchange
-        let matches = htmlText.match(/\b([A-Z0-9]{2,10}):NSE\b/g) || [];
-        for (let match of matches) {
-          let cleanTicker = match.split(":")[0].toUpperCase();
-          
-          // Filter out general market index structures
-          if (cleanTicker && !discoveredTickers.includes(cleanTicker) && !cleanTicker.includes("NIFTY")) {
-            discoveredTickers.push(cleanTicker);
-          }
+        if (res.ok) {
+          htmlText = await res.text();
+          if (htmlText && htmlText.includes("./quote/")) break;
         }
-        
-        if (discoveredTickers.length > 0) break; // Asset collection verified, check next category
       } catch (e) {
-        console.warn("Alternative network line throttled, rotating proxy...");
+        console.debug("Rotating request proxy routing node...");
       }
     }
-  }
 
-  // 3. Fallback: If network access to external text fails, mine tokens from active news wires
-  if (discoveredTickers.length === 0) {
-    try {
-      const pageText = document.body.innerText || "";
-      const tokens = pageText.match(/\b[A-Z]{3,8}\b/g) || [];
-      const ignore = ["THE", "AND", "FOR", "LIVE", "FREE", "NSE", "BSE", "BANK", "NEWS", "ASSET", "PRICE", "SIGNAL", "INTRADAY", "MARKET", "TIME", "VIEW"];
-      discoveredTickers = [...new Set(tokens)].filter(t => !ignore.includes(t));
-    } catch (e) {}
-  }
+    if (!htmlText) continue;
 
-  // Deduplicate and isolate exactly 5 active assets for your layout panel
-  let finalTickers = [...new Set(discoveredTickers)].slice(0, 5);
-  let results = [];
+    // 3. Extract matching tokens from the raw HTML stream
+    let tickerRegex = new RegExp(`href="\\.\\/quote\\/([A-Z0-9_#-]+)${cat.suffix}"`, "g");
+    let match;
+    let pageTickers = [];
+    
+    while ((match = tickerRegex.exec(htmlText)) !== null) {
+      let fullSymbol = match[1].toUpperCase() + (cat.label === "INDEX" ? ":" + match[2] : ":NSE");
+      if (!pageTickers.includes(fullSymbol)) {
+        pageTickers.push(fullSymbol);
+      }
+      if (pageTickers.length >= 2) break; // Take up to 2 distinct row elements per view for balanced layout diversity
+    }
 
-  // 4. Bind discovered items directly to your internal calculation tools
-  for (let ticker of finalTickers) {
-    try {
-      // Pull real-time metric updates using your working chart engine
-      let qData = await yfQuote(ticker);
-      if (qData) {
-        // Feed straight into your structural formatter (line 296) to preserve UI alignment
-        let parsedMover = parseDynamicMoverItem(ticker, qData);
-        if (parsedMover) {
-          results.push(parsedMover);
+    // 4. Isolate individual DOM data blocks to parse metrics
+    for (let sym of pageTickers) {
+      try {
+        let startIdx = htmlText.indexOf(`href="./quote/${sym}"`);
+        if (startIdx === -1) continue;
+
+        let chunk = htmlText.substring(startIdx, startIdx + 2000);
+        
+        // Extract numerical values handling currency symbols and commas seamlessly
+        let priceMatch = chunk.match(/(?:₹\s*|[>\s])([0-9,]+\.[0-9]{2})/);
+        if (!priceMatch) priceMatch = chunk.match(/([0-9,]+\.[0-9]{2})/);
+        if (!priceMatch) continue;
+        
+        let price = parseFloat(priceMatch[1].replace(/,/g, '')) || 0;
+
+        // Parse direction and percentages safely using accessibility markup attributes
+        let changePct = 0;
+        let ariaMatch = chunk.match(/aria-label="(Up|Down)\s+by\s+([0-9.]+)%"/i);
+        
+        if (ariaMatch) {
+          let direction = ariaMatch[1].toLowerCase();
+          let value = parseFloat(ariaMatch[2]) || 0;
+          changePct = direction === "down" ? -value : value;
+        } else {
+          let fallbackPct = chunk.match(/([+-]?[0-9.]+)\s*%/);
+          if (fallbackPct) changePct = parseFloat(fallbackPct[1]) || 0;
         }
+
+        let cleanTicker = sym.split(":")[0].replace("_", " ");
+
+        // Guard against internal duplicate items cross-populating lists
+        if (price > 0 && !results.some(r => r.ticker === cleanTicker)) {
+          results.push({
+            ticker: cleanTicker,
+            price: price,
+            intraday: changePct,
+            changePct: changePct,
+            signal: changePct >= 0 ? "BREAKOUT" : "WEAK",
+            sector: cat.label
+          });
+        }
+      } catch (chunkError) {
+        console.warn("Bypassed layout segment row parsing index mapping.");
       }
-    } catch (err) {
-      console.warn("Mover mapping bypass for ticker asset: ", ticker);
     }
   }
 
-  console.log("Free Website Discovery Ingestion Complete:", results);
-  return results;
+  console.log("Multi-Category Market Dashboard Ingestion Array:", results);
+  return results.slice(0, 6); // Deliver structured array straight to layout templates
 }
 
 function parseDynamicMoverItem(sym, q) {
